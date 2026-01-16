@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { Provider as AppBridgeProvider } from "@shopify/app-bridge-react";
 import {
   AppProvider,
   Page,
@@ -17,6 +18,19 @@ import {
   InlineStack,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
+
+/**
+ * Get shop and host from URL parameters
+ */
+function getShopOrigin() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    shop: params.get("shop") || "",
+    host: params.get("host") || "",
+  };
+}
+
+const { shop, host } = getShopOrigin();
 
 /**
  * Shopify Ürün Listesi Uygulaması
@@ -117,8 +131,7 @@ function App() {
   ]);
 
   return (
-    <AppProvider i18n={{}}>
-      <Page
+    <Page
         title="Ürünlerim"
         subtitle={`Toplam ${products.length} ürün`}
         primaryAction={{
@@ -249,14 +262,37 @@ function App() {
           )}
         </Layout>
       </Page>
-    </AppProvider>
   );
 }
 
-// Render app
+// App Bridge configuration
+const appBridgeConfig = {
+  apiKey: "d8437b8ce81f6502e6eb89d102ebbf7d",
+  host: host || btoa(shop + "/admin"),
+  forceRedirect: true,
+};
+
+// Render app with App Bridge
 const root = ReactDOM.createRoot(document.getElementById("app"));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+
+// If shop parameter exists, use App Bridge (embedded app)
+if (shop) {
+  root.render(
+    <React.StrictMode>
+      <AppBridgeProvider config={appBridgeConfig}>
+        <AppProvider i18n={{}}>
+          <App />
+        </AppProvider>
+      </AppBridgeProvider>
+    </React.StrictMode>
+  );
+} else {
+  // Standalone mode (for testing without Shopify admin)
+  root.render(
+    <React.StrictMode>
+      <AppProvider i18n={{}}>
+        <App />
+      </AppProvider>
+    </React.StrictMode>
+  );
+}
