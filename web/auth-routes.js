@@ -19,11 +19,11 @@ export function setupAuthRoutes(app) {
 
       console.log(`🔐 Starting OAuth for shop: ${shop}`);
 
-      // Begin OAuth
+      // Begin OAuth - Use offline token for persistent access
       await shopify.auth.begin({
         shop: shopify.utils.sanitizeShop(shop, true),
         callbackPath: "/api/auth/callback",
-        isOnline: false, // Offline token for background access
+        isOnline: false, // Offline token so we can access API anytime
         rawRequest: req,
         rawResponse: res,
       });

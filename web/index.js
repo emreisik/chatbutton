@@ -38,12 +38,46 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * Get session from request
+ * Get session from App Bridge token OR cookie
  */
 async function getSessionFromRequest(req) {
+  // First try to get session from App Bridge token (for embedded app)
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    try {
+      const token = authHeader.replace("Bearer ", "");
+      
+      // Decode and validate the session token
+      const payload = await shopify.session.decodeSessionToken(token);
+      const shop = payload.dest.replace("https://", "");
+      
+      // Get offline session ID for the shop
+      const sessionId = shopify.session.getOfflineId(shop);
+      
+      const session = await sessionStorage.loadSession(sessionId);
+      if (session) {
+        console.log(`✅ Session found via App Bridge token for: ${session.shop}`);
+        return session;
+      } else {
+        console.log(`⚠️  No stored session found for shop: ${shop}`);
+      }
+    } catch (error) {
+      console.log("⚠️  App Bridge token validation failed:", error.message);
+    }
+  }
+
+  // Fallback to cookie-based session (for non-embedded access)
   const sessionId = req.cookies?.shopify_session;
-  if (!sessionId) return null;
-  return await sessionStorage.loadSession(sessionId);
+  if (sessionId) {
+    const session = await sessionStorage.loadSession(sessionId);
+    if (session) {
+      console.log(`✅ Session found via cookie for: ${session.shop}`);
+      return session;
+    }
+  }
+
+  console.log("❌ No valid session found");
+  return null;
 }
 
 /**

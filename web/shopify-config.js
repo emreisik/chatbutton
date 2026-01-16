@@ -1,5 +1,6 @@
 import { shopifyApi, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "@shopify/shopify-api/adapters/node";
+import { sessionStorage } from "./session-storage.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -14,6 +15,7 @@ export const shopify = shopifyApi({
   apiVersion: LATEST_API_VERSION,
   isEmbeddedApp: true,
   isCustomStoreApp: false,
+  sessionStorage: sessionStorage,
 });
 
 console.log("🔧 Shopify API initialized");
