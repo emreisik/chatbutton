@@ -1,18 +1,11 @@
-# Railway Build Configuration - Simplified
+# Railway Build Configuration - Backend Only
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  "npm install --legacy-peer-deps",
-  "cd web && npm install --legacy-peer-deps",
-  "cd web/frontend && npm install --legacy-peer-deps"
-]
-
-[phases.build]
-cmds = [
-  "cd web/frontend && npm run build"
+  "cd web && npm install --legacy-peer-deps"
 ]
 
 [start]
