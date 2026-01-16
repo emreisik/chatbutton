@@ -3,6 +3,10 @@ import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import express from "express";
 import serveStatic from "serve-static";
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 
 // Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -10,6 +14,11 @@ const __dirname = dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const app = express();
+
+// Shopify configuration
+const SHOPIFY_STORE = process.env.SHOPIFY_STORE || "web-health-developer.myshopify.com";
+const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN || "";
+const SHOPIFY_API_VERSION = "2024-01";
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -67,6 +76,55 @@ const mockProducts = [
 ];
 
 /**
+ * Fetch products from Shopify Admin API
+ */
+async function fetchShopifyProducts() {
+  // Check if we have Shopify credentials
+  if (!SHOPIFY_ACCESS_TOKEN || SHOPIFY_ACCESS_TOKEN === "") {
+    console.log("⚠️  No Shopify access token - using mock data");
+    return mockProducts;
+  }
+
+  try {
+    const url = `https://${SHOPIFY_STORE}/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=50`;
+    
+    console.log(`📡 Fetching from Shopify API: ${url}`);
+    
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Transform Shopify products to our format
+    const products = data.products.map(product => ({
+      id: product.id.toString(),
+      title: product.title,
+      price: product.variants?.[0]?.price || "0.00",
+      inventory: product.variants?.[0]?.inventory_quantity || 0,
+      status: product.status,
+      image: product.images?.[0]?.src || product.image?.src || null,
+    }));
+
+    console.log(`✅ Fetched ${products.length} products from Shopify`);
+    return products;
+    
+  } catch (error) {
+    console.error("❌ Error fetching from Shopify API:", error.message);
+    console.log("⚠️  Falling back to mock data");
+    return mockProducts;
+  }
+}
+
+/**
  * API Endpoint: Get Shopify Products
  * Returns list of products from the store
  */
@@ -74,15 +132,15 @@ app.get("/api/products", async (req, res) => {
   try {
     console.log("📦 Fetching products...");
     
-    // TODO: Integrate real Shopify Admin API
-    // For now, return mock data
-    const products = mockProducts;
+    // Try to fetch real products, fall back to mock if needed
+    const products = await fetchShopifyProducts();
     
     console.log(`✅ Returned ${products.length} products`);
     
     res.json({
       products: products,
       total: products.length,
+      source: SHOPIFY_ACCESS_TOKEN ? "shopify" : "mock",
     });
   } catch (error) {
     console.error("❌ Error fetching products:", error);
