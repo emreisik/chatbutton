@@ -13,7 +13,7 @@ import {
   EmptyState,
   Thumbnail,
   Stack,
-  TextStyle,
+  Text,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 
@@ -83,11 +83,11 @@ function App() {
           📦
         </div>
       )}
-      <TextStyle variation="strong">{product.title}</TextStyle>
+      <Text as="span" fontWeight="bold">{product.title}</Text>
     </div>,
     
     // Fiyat
-    <TextStyle variation="strong">${product.price}</TextStyle>,
+    <Text as="span" fontWeight="bold">${product.price}</Text>,
     
     // Stok durumu
     <Badge status={product.inventory > 0 ? "success" : "critical"}>
@@ -193,29 +193,29 @@ function App() {
               <Card title="Özet" sectioned>
                 <Stack vertical spacing="loose">
                   <Stack distribution="equalSpacing">
-                    <TextStyle variation="subdued">Toplam Ürün:</TextStyle>
-                    <TextStyle variation="strong">{products.length}</TextStyle>
+                    <Text as="span" color="subdued">Toplam Ürün:</Text>
+                    <Text as="span" fontWeight="bold">{products.length}</Text>
                   </Stack>
                   
                   <Stack distribution="equalSpacing">
-                    <TextStyle variation="subdued">Aktif Ürünler:</TextStyle>
-                    <TextStyle variation="strong">
+                    <Text as="span" color="subdued">Aktif Ürünler:</Text>
+                    <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.status === "active").length}
-                    </TextStyle>
+                    </Text>
                   </Stack>
                   
                   <Stack distribution="equalSpacing">
-                    <TextStyle variation="subdued">Stokta Var:</TextStyle>
-                    <TextStyle variation="strong">
+                    <Text as="span" color="subdued">Stokta Var:</Text>
+                    <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.inventory > 0).length}
-                    </TextStyle>
+                    </Text>
                   </Stack>
                   
                   <Stack distribution="equalSpacing">
-                    <TextStyle variation="subdued">Stokta Yok:</TextStyle>
-                    <TextStyle variation="strong">
+                    <Text as="span" color="subdued">Stokta Yok:</Text>
+                    <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.inventory === 0).length}
-                    </TextStyle>
+                    </Text>
                   </Stack>
                 </Stack>
               </Card>
