@@ -1,18 +1,19 @@
-# Railway Build Configuration - Full Stack
+# Railway Build Configuration - Full Stack WhatsApp Chat Button
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  "cd web && npm install --legacy-peer-deps",
-  "cd web/frontend && npm install --legacy-peer-deps"
+  "npm install --legacy-peer-deps",
+  "cd web && npm install --legacy-peer-deps && cd ..",
+  "cd web/frontend && npm install --legacy-peer-deps && cd ../.."
 ]
 
 [phases.build]
 cmds = [
-  "cd web/frontend && npm run build"
+  "cd web/frontend && npm run build && cd ../.."
 ]
 
 [start]
-cmd = "node web/index.js"
+cmd = "cd web && node index.js"
