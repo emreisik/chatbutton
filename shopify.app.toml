@@ -2,7 +2,7 @@
 
 name = "product-list-app"
 client_id = "d8437b8ce81f6502e6eb89d102ebbf7d"
-application_url = "https://web-health-developer.myshopify.com/"
+application_url = "https://chatbutton-production.up.railway.app"
 embedded = true
 
 [access_scopes]
@@ -11,9 +11,7 @@ scopes = "write_online_store_pages,read_products"
 
 [auth]
 redirect_urls = [
-  "https://web-health-developer.myshopify.com//auth/callback",
-  "https://web-health-developer.myshopify.com/shopify/callback",
-  "https://web-health-developer.myshopify.com/api/auth/callback"
+  "https://chatbutton-production.up.railway.app/api/auth/callback"
 ]
 
 [webhooks]
