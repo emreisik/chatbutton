@@ -20,62 +20,93 @@ app.get('/health', (req, res) => {
 app.use(express.json());
 
 /**
- * In-memory storage for WhatsApp settings
- * In production, this would be stored in a database or Shopify metafields
+ * Mock product data for demo
+ * In production, this would fetch from Shopify Admin API
  */
-let whatsappSettings = {
-  phoneNumber: process.env.WHATSAPP_PHONE || "",
-  defaultMessage: process.env.WHATSAPP_MESSAGE || "Hi! I need help with...",
-  position: process.env.WHATSAPP_POSITION || "bottom-right",
-  enabled: true,
-};
+const mockProducts = [
+  {
+    id: "1",
+    title: "Premium T-Shirt",
+    price: "29.99",
+    inventory: 15,
+    status: "active",
+    image: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-1_large.png",
+  },
+  {
+    id: "2",
+    title: "Classic Hoodie",
+    price: "49.99",
+    inventory: 8,
+    status: "active",
+    image: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-2_large.png",
+  },
+  {
+    id: "3",
+    title: "Cotton Socks",
+    price: "12.99",
+    inventory: 0,
+    status: "active",
+    image: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-3_large.png",
+  },
+  {
+    id: "4",
+    title: "Denim Jeans",
+    price: "79.99",
+    inventory: 23,
+    status: "active",
+    image: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-4_large.png",
+  },
+  {
+    id: "5",
+    title: "Leather Jacket",
+    price: "199.99",
+    inventory: 5,
+    status: "draft",
+    image: "https://cdn.shopify.com/s/files/1/0533/2089/files/placeholder-images-product-5_large.png",
+  },
+];
 
 /**
- * API Endpoint: Get WhatsApp settings
- * Returns the current WhatsApp button settings
+ * API Endpoint: Get Shopify Products
+ * Returns list of products from the store
  */
-app.get("/api/settings", async (req, res) => {
+app.get("/api/products", async (req, res) => {
   try {
-    console.log("📖 Fetching settings:", whatsappSettings);
-    res.json(whatsappSettings);
+    console.log("📦 Fetching products...");
+    
+    // TODO: Integrate real Shopify Admin API
+    // For now, return mock data
+    const products = mockProducts;
+    
+    console.log(`✅ Returned ${products.length} products`);
+    
+    res.json({
+      products: products,
+      total: products.length,
+    });
   } catch (error) {
-    console.error("Error fetching settings:", error);
-    res.status(500).json({ error: "Failed to fetch settings" });
+    console.error("❌ Error fetching products:", error);
+    res.status(500).json({ error: "Failed to fetch products" });
   }
 });
 
 /**
- * API Endpoint: Save WhatsApp settings
- * Saves the WhatsApp button configuration
+ * API Endpoint: Get Single Product
  */
-app.post("/api/settings", async (req, res) => {
+app.get("/api/products/:id", async (req, res) => {
   try {
-    const { phoneNumber, defaultMessage, position, enabled } = req.body;
+    const { id } = req.params;
+    const product = mockProducts.find(p => p.id === id);
     
-    // Validate phone number
-    if (!phoneNumber || phoneNumber.trim() === "") {
-      return res.status(400).json({ 
-        error: "Phone number is required" 
-      });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
     }
     
-    // Update settings in memory
-    whatsappSettings = {
-      phoneNumber: phoneNumber.trim(),
-      defaultMessage: defaultMessage || "Hi! I need help with...",
-      position: position || "bottom-right",
-      enabled: enabled !== undefined ? enabled : true,
-    };
-    
-    console.log("✅ Settings saved successfully:", whatsappSettings);
-    
-    res.json({ 
-      success: true,
-      settings: whatsappSettings 
-    });
+    console.log(`✅ Product found: ${product.title}`);
+    res.json(product);
   } catch (error) {
-    console.error("❌ Error saving settings:", error);
-    res.status(500).json({ error: "Failed to save settings" });
+    console.error("❌ Error fetching product:", error);
+    res.status(500).json({ error: "Failed to fetch product" });
   }
 });
 
