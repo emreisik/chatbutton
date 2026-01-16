@@ -152,9 +152,9 @@ function App() {
           <Layout.Section>
             {loading ? (
               <Card>
-                <Card.Section>
+                <div style={{ padding: "1rem" }}>
                   <SkeletonBodyText lines={10} />
-                </Card.Section>
+                </div>
               </Card>
             ) : products.length === 0 ? (
               <Card>
@@ -189,8 +189,14 @@ function App() {
           {/* İstatistikler */}
           {!loading && products.length > 0 && (
             <Layout.Section secondary>
-              <Card title="Özet" sectioned>
-                <BlockStack gap="400">
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <Text as="h2" variant="headingMd" fontWeight="semibold">
+                    Özet
+                  </Text>
+                </div>
+                <div style={{ padding: "0 1rem 1rem 1rem" }}>
+                  <BlockStack gap="400">
                   <InlineStack align="space-between">
                     <Text as="span" tone="subdued">Toplam Ürün:</Text>
                     <Text as="span" fontWeight="bold">{products.length}</Text>
@@ -217,18 +223,26 @@ function App() {
                     </Text>
                   </InlineStack>
                 </BlockStack>
+                </div>
               </Card>
 
               <div style={{ marginTop: "1rem" }}>
-                <Card title="Hızlı Bilgi" sectioned>
-                  <BlockStack gap="200">
-                    <p style={{ fontSize: "0.9em", color: "#666" }}>
-                      Bu uygulama mağazanızdaki ürünleri listeler.
-                    </p>
-                    <p style={{ fontSize: "0.9em", color: "#666" }}>
-                      Ürünlerinizi yönetmek için Shopify Admin panelini kullanabilirsiniz.
-                    </p>
-                  </BlockStack>
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <Text as="h2" variant="headingMd" fontWeight="semibold">
+                      Hızlı Bilgi
+                    </Text>
+                  </div>
+                  <div style={{ padding: "0 1rem 1rem 1rem" }}>
+                    <BlockStack gap="200">
+                      <p style={{ fontSize: "0.9em", color: "#666" }}>
+                        Bu uygulama mağazanızdaki ürünleri listeler.
+                      </p>
+                      <p style={{ fontSize: "0.9em", color: "#666" }}>
+                        Ürünlerinizi yönetmek için Shopify Admin panelini kullanabilirsiniz.
+                      </p>
+                    </BlockStack>
+                  </div>
                 </Card>
               </div>
             </Layout.Section>
