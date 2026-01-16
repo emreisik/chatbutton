@@ -25,3 +25,9 @@ embedded = false
 [build]
 automatically_update_urls_on_dev = true
 dev_store_url = "web-health-developer.myshopify.com"
+
+# Backend web server configuration
+[web]
+path = "web"
+command = "npm run start"
+port = 8080
