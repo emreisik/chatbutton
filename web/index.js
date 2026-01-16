@@ -1,7 +1,12 @@
-import { join } from "path";
+import { join, dirname } from "path";
 import { readFileSync, existsSync } from "fs";
+import { fileURLToPath } from "url";
 import express from "express";
 import serveStatic from "serve-static";
+
+// Get __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const app = express();
@@ -51,8 +56,12 @@ app.post("/api/settings", async (req, res) => {
 });
 
 // Serve static frontend files if they exist
-const STATIC_PATH = join(process.cwd(), "web/frontend/dist");
+const STATIC_PATH = join(__dirname, "frontend", "dist");
+console.log(`🔍 Looking for frontend at: ${STATIC_PATH}`);
+console.log(`📂 Frontend exists: ${existsSync(STATIC_PATH)}`);
+
 if (existsSync(STATIC_PATH)) {
+  console.log(`✅ Serving static files from: ${STATIC_PATH}`);
   app.use(serveStatic(STATIC_PATH, { index: false }));
   
   // Serve the React app for all other routes
