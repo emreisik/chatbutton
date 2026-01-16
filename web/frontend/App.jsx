@@ -12,14 +12,11 @@ import {
   Banner,
   Layout,
   SkeletonBodyText,
-  Frame,
 } from "@shopify/polaris";
-import { Provider as AppBridgeProvider } from "@shopify/app-bridge-react";
 import "@shopify/polaris/build/esm/styles.css";
 
 /**
- * Main App Component
- * Admin panel for configuring WhatsApp chat button
+ * Main App Component - Standalone Admin Panel
  */
 function App() {
   const [settings, setSettings] = React.useState({
@@ -32,7 +29,7 @@ function App() {
   const [saving, setSaving] = React.useState(false);
   const [banner, setBanner] = React.useState(null);
 
-  // Position options for the button
+  // Position options
   const positionOptions = [
     { label: "Bottom Right", value: "bottom-right" },
     { label: "Bottom Left", value: "bottom-left" },
@@ -40,9 +37,7 @@ function App() {
     { label: "Top Left", value: "top-left" },
   ];
 
-  /**
-   * Load settings from the backend on mount
-   */
+  // Load settings on mount
   React.useEffect(() => {
     loadSettings();
   }, []);
@@ -63,14 +58,10 @@ function App() {
     }
   };
 
-  /**
-   * Save settings to the backend
-   */
   const handleSave = async () => {
     setSaving(true);
     setBanner(null);
 
-    // Validate phone number
     if (!settings.phoneNumber) {
       setBanner({
         status: "critical",
@@ -108,9 +99,6 @@ function App() {
     }
   };
 
-  /**
-   * Update a specific setting field
-   */
   const updateSetting = (field, value) => {
     setSettings((prev) => ({
       ...prev,
@@ -119,7 +107,7 @@ function App() {
   };
 
   return (
-    <Frame>
+    <AppProvider i18n={{}}>
       <Page
         title="WhatsApp Chat Button"
         subtitle="Configure your floating WhatsApp chat button"
@@ -154,7 +142,7 @@ function App() {
                     value={settings.phoneNumber}
                     onChange={(value) => updateSetting("phoneNumber", value)}
                     placeholder="+1234567890"
-                    helpText="Include country code (e.g., +1 for US, +44 for UK)"
+                    helpText="Include country code (e.g., +1 for US, +90 for Turkey)"
                     autoComplete="tel"
                   />
 
@@ -188,9 +176,9 @@ function App() {
 
           <Layout.Section secondary>
             <Card title="How to Enable" sectioned>
-              <p style={{ marginBottom: "1rem" }}>
-                After saving your settings:
-              </p>
+              <div style={{ marginBottom: "1rem" }}>
+                <p>After saving your settings:</p>
+              </div>
               <ol style={{ paddingLeft: "1.5rem" }}>
                 <li style={{ marginBottom: "0.5rem" }}>
                   Go to your Shopify admin
@@ -202,7 +190,7 @@ function App() {
                   Click "Customize" on your active theme
                 </li>
                 <li style={{ marginBottom: "0.5rem" }}>
-                  In the theme editor, click on "App embeds" in the left sidebar
+                  In the theme editor, click on "App embeds"
                 </li>
                 <li style={{ marginBottom: "0.5rem" }}>
                   Enable "WhatsApp Chat Button"
@@ -211,36 +199,27 @@ function App() {
               </ol>
             </Card>
 
-            <Card title="Preview" sectioned>
-              <p style={{ marginBottom: "1rem" }}>
-                Your button will appear at: <strong>{settings.position}</strong>
-              </p>
-              <p>
-                Phone: <strong>{settings.phoneNumber || "Not set"}</strong>
-              </p>
-            </Card>
+            <div style={{ marginTop: "1rem" }}>
+              <Card title="Preview" sectioned>
+                <div style={{ marginBottom: "1rem" }}>
+                  <p>Button position: <strong>{settings.position}</strong></p>
+                </div>
+                <p>
+                  Phone: <strong>{settings.phoneNumber || "Not set"}</strong>
+                </p>
+              </Card>
+            </div>
           </Layout.Section>
         </Layout>
       </Page>
-    </Frame>
+    </AppProvider>
   );
 }
 
-/**
- * App initialization with Shopify App Bridge
- */
-const config = {
-  apiKey: window.shopifyApiKey || "",
-  host: new URLSearchParams(window.location.search).get("host") || "",
-};
-
+// Render app
 const root = ReactDOM.createRoot(document.getElementById("app"));
 root.render(
   <React.StrictMode>
-    <AppBridgeProvider config={config}>
-      <AppProvider i18n={{}}>
-        <App />
-      </AppProvider>
-    </AppBridgeProvider>
+    <App />
   </React.StrictMode>
 );
