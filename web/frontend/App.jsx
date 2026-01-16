@@ -12,8 +12,9 @@ import {
   Badge,
   EmptyState,
   Thumbnail,
-  Stack,
   Text,
+  BlockStack,
+  InlineStack,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 
@@ -102,19 +103,17 @@ function App() {
     ),
     
     // Eylemler
-    <Stack spacing="tight">
-      <Button
-        plain
-        onClick={() => {
-          window.open(
-            `https://admin.shopify.com/store/web-health-developer/products/${product.id}`,
-            "_blank"
-          );
-        }}
-      >
-        Görüntüle
-      </Button>
-    </Stack>,
+    <Button
+      plain
+      onClick={() => {
+        window.open(
+          `https://admin.shopify.com/store/web-health-developer/products/${product.id}`,
+          "_blank"
+        );
+      }}
+    >
+      Görüntüle
+    </Button>,
   ]);
 
   return (
@@ -191,45 +190,45 @@ function App() {
           {!loading && products.length > 0 && (
             <Layout.Section secondary>
               <Card title="Özet" sectioned>
-                <Stack vertical spacing="loose">
-                  <Stack distribution="equalSpacing">
-                    <Text as="span" color="subdued">Toplam Ürün:</Text>
+                <BlockStack gap="400">
+                  <InlineStack align="space-between">
+                    <Text as="span" tone="subdued">Toplam Ürün:</Text>
                     <Text as="span" fontWeight="bold">{products.length}</Text>
-                  </Stack>
+                  </InlineStack>
                   
-                  <Stack distribution="equalSpacing">
-                    <Text as="span" color="subdued">Aktif Ürünler:</Text>
+                  <InlineStack align="space-between">
+                    <Text as="span" tone="subdued">Aktif Ürünler:</Text>
                     <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.status === "active").length}
                     </Text>
-                  </Stack>
+                  </InlineStack>
                   
-                  <Stack distribution="equalSpacing">
-                    <Text as="span" color="subdued">Stokta Var:</Text>
+                  <InlineStack align="space-between">
+                    <Text as="span" tone="subdued">Stokta Var:</Text>
                     <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.inventory > 0).length}
                     </Text>
-                  </Stack>
+                  </InlineStack>
                   
-                  <Stack distribution="equalSpacing">
-                    <Text as="span" color="subdued">Stokta Yok:</Text>
+                  <InlineStack align="space-between">
+                    <Text as="span" tone="subdued">Stokta Yok:</Text>
                     <Text as="span" fontWeight="bold">
                       {products.filter((p) => p.inventory === 0).length}
                     </Text>
-                  </Stack>
-                </Stack>
+                  </InlineStack>
+                </BlockStack>
               </Card>
 
               <div style={{ marginTop: "1rem" }}>
                 <Card title="Hızlı Bilgi" sectioned>
-                  <Stack vertical spacing="tight">
+                  <BlockStack gap="200">
                     <p style={{ fontSize: "0.9em", color: "#666" }}>
                       Bu uygulama mağazanızdaki ürünleri listeler.
                     </p>
                     <p style={{ fontSize: "0.9em", color: "#666" }}>
                       Ürünlerinizi yönetmek için Shopify Admin panelini kullanabilirsiniz.
                     </p>
-                  </Stack>
+                  </BlockStack>
                 </Card>
               </div>
             </Layout.Section>
