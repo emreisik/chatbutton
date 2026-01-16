@@ -20,18 +20,24 @@ app.get('/health', (req, res) => {
 app.use(express.json());
 
 /**
+ * In-memory storage for WhatsApp settings
+ * In production, this would be stored in a database or Shopify metafields
+ */
+let whatsappSettings = {
+  phoneNumber: process.env.WHATSAPP_PHONE || "",
+  defaultMessage: process.env.WHATSAPP_MESSAGE || "Hi! I need help with...",
+  position: process.env.WHATSAPP_POSITION || "bottom-right",
+  enabled: true,
+};
+
+/**
  * API Endpoint: Get WhatsApp settings
- * For Railway: Returns dummy data (customize later with actual Shopify integration)
+ * Returns the current WhatsApp button settings
  */
 app.get("/api/settings", async (req, res) => {
   try {
-    // TODO: Add Shopify API integration when ready
-    res.json({
-      phoneNumber: process.env.WHATSAPP_PHONE || "",
-      defaultMessage: process.env.WHATSAPP_MESSAGE || "Hi! I need help with...",
-      position: process.env.WHATSAPP_POSITION || "bottom-right",
-      enabled: true,
-    });
+    console.log("📖 Fetching settings:", whatsappSettings);
+    res.json(whatsappSettings);
   } catch (error) {
     console.error("Error fetching settings:", error);
     res.status(500).json({ error: "Failed to fetch settings" });
@@ -40,17 +46,35 @@ app.get("/api/settings", async (req, res) => {
 
 /**
  * API Endpoint: Save WhatsApp settings
+ * Saves the WhatsApp button configuration
  */
 app.post("/api/settings", async (req, res) => {
   try {
     const { phoneNumber, defaultMessage, position, enabled } = req.body;
     
-    console.log("Settings saved:", { phoneNumber, defaultMessage, position, enabled });
+    // Validate phone number
+    if (!phoneNumber || phoneNumber.trim() === "") {
+      return res.status(400).json({ 
+        error: "Phone number is required" 
+      });
+    }
     
-    // TODO: Add Shopify API integration when ready
-    res.json({ success: true });
+    // Update settings in memory
+    whatsappSettings = {
+      phoneNumber: phoneNumber.trim(),
+      defaultMessage: defaultMessage || "Hi! I need help with...",
+      position: position || "bottom-right",
+      enabled: enabled !== undefined ? enabled : true,
+    };
+    
+    console.log("✅ Settings saved successfully:", whatsappSettings);
+    
+    res.json({ 
+      success: true,
+      settings: whatsappSettings 
+    });
   } catch (error) {
-    console.error("Error saving settings:", error);
+    console.error("❌ Error saving settings:", error);
     res.status(500).json({ error: "Failed to save settings" });
   }
 });
