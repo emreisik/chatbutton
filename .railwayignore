@@ -1,0 +1,11 @@
+# Railway için gereksiz dosyalar
+.git
+.github
+node_modules
+*.md
+*.txt
+.DS_Store
+.env*
+.shopify
+.vscode
+.idea

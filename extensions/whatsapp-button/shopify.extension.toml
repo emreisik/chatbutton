@@ -1,0 +1,4 @@
+# Theme App Extension Configuration
+name = "WhatsApp Chat Button"
+uid = "dc9e402a-b794-ae90-1769-45a13905b67fdb128e5b"
+type = "theme"
