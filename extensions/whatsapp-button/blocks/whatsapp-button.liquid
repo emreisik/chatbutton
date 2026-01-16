@@ -1,39 +1,16 @@
 {% comment %}
-  WhatsApp Chat Button - App Embed Block
+  WhatsApp Chat Button - App Embed Block (Dynamic API Version)
   
-  This block renders a floating WhatsApp chat button on the storefront.
-  Settings are loaded from app metafields.
+  This block fetches settings from Railway API and renders a floating WhatsApp button.
+  Settings are loaded in real-time from the admin panel.
 {% endcomment %}
 
-{%- liquid
-  assign phone_number = shop.metafields.whatsapp_chat.phone_number
-  assign default_message = shop.metafields.whatsapp_chat.default_message
-  assign position = shop.metafields.whatsapp_chat.position
-  assign enabled = shop.metafields.whatsapp_chat.enabled
-
-  # Provide default values if not set
-  if default_message == blank
-    assign default_message = "Hi! I need help with..."
-  endif
-
-  if position == blank
-    assign position = "bottom-right"
-  endif
-
-  if enabled == blank
-    assign enabled = true
-  endif
--%}
-
-{% comment %} Only render if enabled and phone number is set {% endcomment %}
-{% if enabled and phone_number != blank %}
-<div id="whatsapp-chat-button-wrapper" data-position="{{ position }}">
+<div id="whatsapp-chat-button-wrapper" style="display: none;">
   <a
-    href="https://wa.me/{{ phone_number | url_encode }}?text={{ default_message | url_encode }}"
+    href="#"
+    id="whatsapp-chat-button"
     target="_blank"
     rel="noopener noreferrer"
-    id="whatsapp-chat-button"
-    class="whatsapp-button-{{ position }}"
     aria-label="Chat on WhatsApp"
     title="Chat on WhatsApp"
   >
@@ -53,7 +30,14 @@
   #whatsapp-chat-button-wrapper {
     position: fixed;
     z-index: 9999;
+    opacity: 0;
+    transform: scale(0.8);
     transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  #whatsapp-chat-button-wrapper.visible {
+    opacity: 1;
+    transform: scale(1);
   }
 
   #whatsapp-chat-button {
@@ -78,23 +62,23 @@
     transform: scale(0.95);
   }
 
-  /* Position classes */
-  .whatsapp-button-bottom-right {
+  /* Position classes - dynamically applied via JS */
+  #whatsapp-chat-button-wrapper.position-bottom-right {
     bottom: 20px;
     right: 20px;
   }
 
-  .whatsapp-button-bottom-left {
+  #whatsapp-chat-button-wrapper.position-bottom-left {
     bottom: 20px;
     left: 20px;
   }
 
-  .whatsapp-button-top-right {
+  #whatsapp-chat-button-wrapper.position-top-right {
     top: 20px;
     right: 20px;
   }
 
-  .whatsapp-button-top-left {
+  #whatsapp-chat-button-wrapper.position-top-left {
     top: 20px;
     left: 20px;
   }
@@ -111,28 +95,28 @@
       height: 28px;
     }
 
-    .whatsapp-button-bottom-right,
-    .whatsapp-button-bottom-left,
-    .whatsapp-button-top-right,
-    .whatsapp-button-top-left {
+    #whatsapp-chat-button-wrapper.position-bottom-right,
+    #whatsapp-chat-button-wrapper.position-bottom-left {
       bottom: 16px;
+    }
+
+    #whatsapp-chat-button-wrapper.position-top-right,
+    #whatsapp-chat-button-wrapper.position-top-left {
+      top: 16px;
+    }
+
+    #whatsapp-chat-button-wrapper.position-bottom-right,
+    #whatsapp-chat-button-wrapper.position-top-right {
       right: 16px;
     }
 
-    .whatsapp-button-bottom-left,
-    .whatsapp-button-top-left {
-      right: auto;
+    #whatsapp-chat-button-wrapper.position-bottom-left,
+    #whatsapp-chat-button-wrapper.position-top-left {
       left: 16px;
-    }
-
-    .whatsapp-button-top-right,
-    .whatsapp-button-top-left {
-      bottom: auto;
-      top: 16px;
     }
   }
 
-  /* Accessibility: Respect reduced motion preference */
+  /* Accessibility */
   @media (prefers-reduced-motion: reduce) {
     #whatsapp-chat-button-wrapper,
     #whatsapp-chat-button {
@@ -140,10 +124,9 @@
     }
   }
 
-  /* Hide on print */
   @media print {
     #whatsapp-chat-button-wrapper {
-      display: none;
+      display: none !important;
     }
   }
 </style>
@@ -153,111 +136,134 @@
     'use strict';
 
     /**
-     * WhatsApp Chat Button Handler
-     * Manages button visibility and interaction
+     * WhatsApp Chat Button - Dynamic API Version
+     * Fetches settings from Railway backend and renders button
      */
     const WhatsAppButton = {
-      init: function() {
-        this.button = document.getElementById('whatsapp-chat-button');
-        this.wrapper = document.getElementById('whatsapp-chat-button-wrapper');
+      apiUrl: 'https://chatbutton-production.up.railway.app/api/settings',
+      button: null,
+      wrapper: null,
+      settings: null,
 
-        if (!this.button || !this.wrapper) {
+      /**
+       * Initialize the button
+       */
+      init: async function() {
+        this.wrapper = document.getElementById('whatsapp-chat-button-wrapper');
+        this.button = document.getElementById('whatsapp-chat-button');
+
+        if (!this.wrapper || !this.button) {
+          console.warn('WhatsApp button elements not found');
           return;
         }
 
-        this.setupPositioning();
-        this.setupTracking();
-        this.handleScroll();
-      },
+        // Fetch settings from API
+        await this.loadSettings();
 
-      /**
-       * Apply positioning based on data attribute
-       */
-      setupPositioning: function() {
-        const position = this.wrapper.getAttribute('data-position') || 'bottom-right';
-        const [vertical, horizontal] = position.split('-');
-
-        // Set CSS custom properties for dynamic positioning
-        this.wrapper.style.setProperty(vertical, '20px');
-        this.wrapper.style.setProperty(horizontal, '20px');
-
-        // Apply responsive positioning on mobile
-        if (window.innerWidth <= 768) {
-          this.wrapper.style.setProperty(vertical, '16px');
-          this.wrapper.style.setProperty(horizontal, '16px');
+        if (this.settings && this.settings.enabled && this.settings.phoneNumber) {
+          this.applySettings();
+          this.show();
+          this.setupTracking();
         }
       },
 
       /**
-       * Track button clicks for analytics (optional)
+       * Load settings from Railway API
+       */
+      loadSettings: async function() {
+        try {
+          const response = await fetch(this.apiUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (response.ok) {
+            this.settings = await response.json();
+            console.log('✅ WhatsApp settings loaded:', this.settings);
+          } else {
+            console.error('Failed to load WhatsApp settings:', response.status);
+          }
+        } catch (error) {
+          console.error('Error fetching WhatsApp settings:', error);
+          // Fallback to default settings
+          this.settings = {
+            phoneNumber: '',
+            defaultMessage: 'Hi! I need help with...',
+            position: 'bottom-right',
+            enabled: false
+          };
+        }
+      },
+
+      /**
+       * Apply settings to button
+       */
+      applySettings: function() {
+        if (!this.settings) return;
+
+        // Build WhatsApp URL
+        const phone = this.settings.phoneNumber.replace(/[^0-9+]/g, '');
+        const message = encodeURIComponent(this.settings.defaultMessage || 'Hi!');
+        const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+        
+        this.button.href = whatsappUrl;
+
+        // Apply position
+        const position = this.settings.position || 'bottom-right';
+        this.wrapper.className = `position-${position}`;
+      },
+
+      /**
+       * Show the button with animation
+       */
+      show: function() {
+        this.wrapper.style.display = 'block';
+        
+        // Trigger animation after a small delay
+        setTimeout(() => {
+          this.wrapper.classList.add('visible');
+        }, 100);
+      },
+
+      /**
+       * Track button clicks
        */
       setupTracking: function() {
-        this.button.addEventListener('click', function(e) {
-          // Optional: Send analytics event
+        this.button.addEventListener('click', (e) => {
+          // Google Analytics
           if (window.gtag) {
             window.gtag('event', 'click', {
               event_category: 'WhatsApp',
-              event_label: 'Chat Button Click'
+              event_label: 'Chat Button Click',
+              value: 1
             });
           }
 
-          // Optional: Shopify Analytics
+          // Shopify Analytics
           if (window.ShopifyAnalytics) {
             window.ShopifyAnalytics.lib.track('WhatsApp Button Click', {
-              source: 'whatsapp-chat-button-app'
+              source: 'whatsapp-chat-button-app',
+              phone: this.settings.phoneNumber
             });
           }
+
+          console.log('📱 WhatsApp button clicked:', this.settings.phoneNumber);
         });
-      },
-
-      /**
-       * Handle scroll behavior (optional fade-in effect)
-       */
-      handleScroll: function() {
-        let scrollTimeout;
-        const wrapper = this.wrapper;
-
-        // Show button after scrolling a bit
-        window.addEventListener('scroll', function() {
-          clearTimeout(scrollTimeout);
-
-          if (window.scrollY > 100) {
-            wrapper.style.opacity = '1';
-            wrapper.style.transform = 'scale(1)';
-          }
-
-          scrollTimeout = setTimeout(function() {
-            wrapper.style.opacity = '1';
-          }, 150);
-        });
-
-        // Initial state
-        if (window.scrollY > 100) {
-          wrapper.style.opacity = '1';
-        } else {
-          wrapper.style.opacity = '1';
-        }
       }
     };
 
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', () => {
         WhatsAppButton.init();
       });
     } else {
       WhatsAppButton.init();
     }
-
-    // Re-apply positioning on window resize
-    window.addEventListener('resize', function() {
-      if (WhatsAppButton.wrapper) {
-        WhatsAppButton.setupPositioning();
-      }
-    });
   })();
 </script>
-{% endif %}
 
 {% schema %}
 {
@@ -266,7 +272,11 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Configure your WhatsApp chat button settings in the app admin panel. Then enable this app embed to show the button on your storefront."
+      "content": "This app loads WhatsApp button settings from your admin panel. Configure the phone number, message, and position in the app settings."
+    },
+    {
+      "type": "paragraph",
+      "content": "The button will appear automatically when you enable it in the admin panel and add a valid phone number."
     }
   ]
 }
