@@ -1,5 +1,5 @@
 {
-  "name": "shopify-product-list",
+  "name": "product-list-app",
   "version": "2.0.0",
   "description": "Shopify Product List - View and manage your store products",
   "main": "web/index.js",

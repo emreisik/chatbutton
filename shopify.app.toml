@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "shopify-product-list"
+name = "product-list-app"
 client_id = "d8437b8ce81f6502e6eb89d102ebbf7d"
 application_url = "https://web-health-developer.myshopify.com/"
 embedded = true
