@@ -634,7 +634,18 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       }
     );
 
-    const { fields, url: uploadUrl, id: imageId } = uploadResponse.data.uploadInitImage;
+    let { fields, url: uploadUrl, id: imageId } = uploadResponse.data.uploadInitImage;
+
+    // Parse fields if it's a JSON string
+    if (typeof fields === 'string') {
+      console.log(`🔄 Fields is a string, parsing JSON...`);
+      try {
+        fields = JSON.parse(fields);
+      } catch (e) {
+        console.error(`❌ Failed to parse fields JSON:`, e);
+        throw new Error("Invalid fields format from Leonardo API");
+      }
+    }
 
     // Step 2: Upload image to presigned URL (S3)
     console.log(`📤 Step 2/4: Uploading image data to S3...`);
@@ -642,18 +653,22 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`📤 Upload URL: ${uploadUrl}`);
     console.log(`📦 Image size: ${imageResponse.data.byteLength} bytes`);
-    console.log(`📋 S3 fields received: ${fields ? Object.keys(fields).length : 0}`);
+    console.log(`📋 S3 fields: ${fields ? Object.keys(fields).length : 0} fields`);
+    console.log(`📋 Field names: ${fields ? Object.keys(fields).join(', ') : 'none'}`);
     
     // Create FormData with proper field ordering for S3
     const formData = new FormData();
     
     // Add all S3 fields FIRST (critical order for AWS S3!)
-    if (fields) {
+    if (fields && typeof fields === 'object') {
       for (const [key, value] of Object.entries(fields)) {
         formData.append(key, value);
         const displayValue = typeof value === 'string' ? value.substring(0, 50) + (value.length > 50 ? '...' : '') : value;
         console.log(`  ✓ ${key}: ${displayValue}`);
       }
+    } else {
+      console.error(`❌ Fields is not an object:`, typeof fields, fields);
+      throw new Error("Invalid fields format");
     }
     
     // Add file LAST (must be after all metadata fields)
