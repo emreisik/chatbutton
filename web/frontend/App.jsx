@@ -67,24 +67,28 @@ function App() {
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
   const [customPrompt, setCustomPrompt] = React.useState(
-    `Image-to-image transformation. Reference mode: LOCKED.
+    `Image-to-image transformation. GARMENT PRESERVATION MODE: ABSOLUTE LOCK.
 
-CRITICAL INSTRUCTION - DO NOT modify:
-- ANY clothing items (preserve EXACT colors, patterns, textures, cuts, fits)
-- ANY garment details (buttons, zippers, logos, text, embellishments, seams, stitches)
-- ANY fabric properties (transparency, opacity, wrinkles, folds, tension, draping)
-- Body pose, stance, hands, arms, legs position
-- Camera angle, framing, composition
+PRIMARY DIRECTIVE - CLOTHING MUST BE 100% IDENTICAL:
+The clothing, fabric, and all garment details are SACRED and UNTOUCHABLE.
+Preserve EVERY single detail with ZERO modifications:
+- EXACT same colors, patterns, textures, cuts, fits, shapes
+- EXACT same buttons, zippers, logos, text, embellishments, stitching
+- EXACT same fabric properties: transparency, opacity, wrinkles, folds, draping
+- EXACT same garment positioning on body
+
+ALSO preserve unchanged:
+- Body pose, stance, all limb positions
+- Camera angle, framing, composition  
 - Lighting, shadows, highlights
-- Background, floor, props
-- Image quality, sharpness
+- Background, floor, all props
+- Image quality, sharpness, focus
 
-ONLY modify: Replace woman's face and hair with a different female model.
-Keep similar age, ethnicity, skin tone. Natural realistic features, no artificial enhancements.`
-  ); // ULTRA-MINIMAL "ZERO-EDIT" prompt (init_strength 0.22, alchemy OFF)
+SECONDARY task (less important): You may replace the woman's face/hair if possible while keeping everything else identical.`
+  ); // ABSOLUTE "GARMENT-FIRST" prompt (init_strength 0.18, alchemy OFF)
   const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
-    "any clothing change, any fabric change, any color change, any pattern change, any texture change, modified garment, altered outfit, different cut, different fit, changed buttons, changed zippers, changed text, changed logos, changed embellishments, modified seams, modified stitches, different transparency, different opacity, different wrinkles, different folds, different draping, different pose, different stance, changed hands, changed arms, changed legs, different camera angle, different framing, different composition, different lighting, different shadows, different background, different props, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, deformed, distorted, blurry, low quality"
-  ); // ULTRA-AGGRESSIVE negative prompt
+    "ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, modified buttons, modified zippers, modified text, modified logos, modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY wrinkle change, ANY fold change, ANY draping change, garment deformation, fabric distortion, clothing replacement, outfit substitution, ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, ANY camera angle change, ANY framing change, ANY composition change, ANY lighting change, ANY shadow change, ANY background change, ANY prop change, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, deformed, distorted, blurry, low quality, unrealistic"
+  ); // MAXIMUM RESTRICTIVE negative prompt
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
