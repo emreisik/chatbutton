@@ -22,7 +22,12 @@ import {
   TextField,
   Select,
   Checkbox,
+  Modal,
+  List,
+  ProgressBar,
+  Icon,
 } from "@shopify/polaris";
+import { ImageIcon } from "@shopify/polaris-icons";
 import "@shopify/polaris/build/esm/styles.css";
 
 /**
@@ -57,6 +62,14 @@ function App() {
   // Seçim state'leri
   const [selectedProducts, setSelectedProducts] = React.useState([]);
   
+  // AI Modal state'leri
+  const [aiModalActive, setAiModalActive] = React.useState(false);
+  const [aiTemplates, setAiTemplates] = React.useState([]);
+  const [selectedTemplate, setSelectedTemplate] = React.useState("ecommerce_white");
+  const [generatingImages, setGeneratingImages] = React.useState(false);
+  const [generationProgress, setGenerationProgress] = React.useState(0);
+  const [generationResults, setGenerationResults] = React.useState([]);
+  
   // Get App Bridge instance (if embedded)
   let app = null;
   try {
@@ -68,7 +81,20 @@ function App() {
   // Load products on mount
   React.useEffect(() => {
     loadProducts();
+    loadAITemplates();
   }, []);
+
+  // Load AI templates
+  const loadAITemplates = async () => {
+    try {
+      const response = await fetch("/api/ai/templates");
+      const data = await response.json();
+      setAiTemplates(data.templates || []);
+      console.log("✅ AI Templates loaded:", data.templates);
+    } catch (error) {
+      console.error("❌ Failed to load AI templates:", error);
+    }
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -237,6 +263,93 @@ function App() {
     return uniqueVendors.sort((a, b) => a.localeCompare(b, "tr"));
   }, [products]);
 
+  // AI Image Generation
+  const handleOpenAIModal = () => {
+    if (selectedProducts.length === 0) {
+      setBanner({
+        status: "warning",
+        title: "Lütfen önce ürün seçin!",
+        content: "AI görsel oluşturmak için en az bir ürün seçmelisiniz.",
+      });
+      return;
+    }
+    setAiModalActive(true);
+    setGenerationResults([]);
+  };
+
+  const handleGenerateImages = async () => {
+    setGeneratingImages(true);
+    setGenerationProgress(0);
+    setGenerationResults([]);
+
+    const selectedProductDetails = filteredProducts.filter((p) =>
+      selectedProducts.includes(p.id)
+    );
+
+    let token = null;
+    if (app) {
+      try {
+        token = await getSessionToken(app);
+      } catch (error) {
+        console.error("Failed to get token:", error);
+      }
+    }
+
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const totalProducts = selectedProductDetails.length;
+    const results = [];
+
+    for (let i = 0; i < totalProducts; i++) {
+      const product = selectedProductDetails[i];
+      
+      try {
+        console.log(`🎨 Generating image ${i + 1}/${totalProducts} for: ${product.title}`);
+        
+        const response = await fetch("/api/products/generate-image", {
+          method: "POST",
+          headers: headers,
+          credentials: "include",
+          body: JSON.stringify({
+            productId: product.id,
+            productName: product.title,
+            templateKey: selectedTemplate,
+          }),
+        });
+
+        const data = await response.json();
+        
+        results.push({
+          productId: product.id,
+          productName: product.title,
+          success: data.success,
+          prompt: data.prompt,
+          templateUsed: data.templateUsed,
+        });
+
+        setGenerationProgress(((i + 1) / totalProducts) * 100);
+        setGenerationResults([...results]);
+
+      } catch (error) {
+        console.error(`❌ Error generating image for ${product.title}:`, error);
+        results.push({
+          productId: product.id,
+          productName: product.title,
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    setGeneratingImages(false);
+    setBanner({
+      status: "success",
+      title: `${results.filter(r => r.success).length} ürün için AI prompt oluşturuldu!`,
+      content: "Prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanabilirsiniz.",
+    });
+  };
+
   const filters = [
     {
       key: "status",
@@ -404,6 +517,11 @@ function App() {
                 "_blank"
               );
             },
+          },
+          {
+            content: "🎨 AI Fotoğraf Oluştur",
+            onAction: handleOpenAIModal,
+            disabled: selectedProducts.length === 0,
           },
         ]}
       >
@@ -622,6 +740,133 @@ function App() {
             </Layout.Section>
           )}
         </Layout>
+
+        {/* AI Image Generation Modal */}
+        <Modal
+          open={aiModalActive}
+          onClose={() => setAiModalActive(false)}
+          title="🎨 AI ile Ürün Fotoğrafı Oluştur"
+          primaryAction={{
+            content: generatingImages ? "Oluşturuluyor..." : "Fotoğraf Oluştur",
+            onAction: handleGenerateImages,
+            loading: generatingImages,
+            disabled: generatingImages,
+          }}
+          secondaryActions={[
+            {
+              content: "İptal",
+              onAction: () => setAiModalActive(false),
+              disabled: generatingImages,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              {/* Seçili Ürünler */}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <BlockStack gap="200">
+                    <Text as="h3" variant="headingSm" fontWeight="semibold">
+                      Seçili Ürünler ({selectedProducts.length})
+                    </Text>
+                    <List>
+                      {filteredProducts
+                        .filter((p) => selectedProducts.includes(p.id))
+                        .map((product) => (
+                          <List.Item key={product.id}>{product.title}</List.Item>
+                        ))}
+                    </List>
+                  </BlockStack>
+                </div>
+              </Card>
+
+              {/* Prompt Şablonu Seçimi */}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm" fontWeight="semibold">
+                      Fotoğraf Stili
+                    </Text>
+                    <Select
+                      label="Prompt Şablonu"
+                      options={aiTemplates.map((t) => ({
+                        label: t.name,
+                        value: t.id,
+                      }))}
+                      value={selectedTemplate}
+                      onChange={setSelectedTemplate}
+                    />
+                    <Text as="p" tone="subdued" variant="bodyS">
+                      Seçilen stil ile tüm ürünler için AI fotoğraf prompt'ları oluşturulacak.
+                    </Text>
+                  </BlockStack>
+                </div>
+              </Card>
+
+              {/* Progress */}
+              {generatingImages && (
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <BlockStack gap="200">
+                      <Text as="p">Fotoğraflar oluşturuluyor...</Text>
+                      <ProgressBar progress={generationProgress} size="small" />
+                    </BlockStack>
+                  </div>
+                </Card>
+              )}
+
+              {/* Results */}
+              {generationResults.length > 0 && (
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        Sonuçlar
+                      </Text>
+                      {generationResults.map((result) => (
+                        <div
+                          key={result.productId}
+                          style={{
+                            padding: "0.75rem",
+                            background: result.success ? "#f1f8f4" : "#fef1f1",
+                            borderRadius: "8px",
+                          }}
+                        >
+                          <BlockStack gap="200">
+                            <Text as="p" fontWeight="semibold">
+                              {result.success ? "✅" : "❌"} {result.productName}
+                            </Text>
+                            {result.success && (
+                              <div style={{ 
+                                padding: "0.5rem", 
+                                background: "white", 
+                                borderRadius: "4px",
+                                fontSize: "0.85em",
+                                fontFamily: "monospace",
+                              }}>
+                                {result.prompt}
+                              </div>
+                            )}
+                            {result.error && (
+                              <Text as="p" tone="critical" variant="bodyS">
+                                {result.error}
+                              </Text>
+                            )}
+                          </BlockStack>
+                        </div>
+                      ))}
+                      <Banner status="info">
+                        <Text as="p" variant="bodyS">
+                          Bu prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanarak gerçek görseller oluşturabilirsiniz.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  </div>
+                </Card>
+              )}
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
       </Page>
   );
 }

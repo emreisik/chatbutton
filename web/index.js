@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import { shopify } from "./shopify-config.js";
 import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
+import { generateProductImage, PROMPT_TEMPLATES, uploadImageToShopify } from "./ai-image-service.js";
 
 // Load environment variables
 dotenv.config();
@@ -186,6 +187,56 @@ app.get("/api/products", async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching products:", error);
     res.status(500).json({ error: "Failed to fetch products" });
+  }
+});
+
+/**
+ * API Endpoint: Get Available AI Prompt Templates
+ */
+app.get("/api/ai/templates", (req, res) => {
+  const templates = Object.entries(PROMPT_TEMPLATES).map(([key, value]) => ({
+    id: key,
+    name: value.name,
+  }));
+  
+  res.json({ templates });
+});
+
+/**
+ * API Endpoint: Generate AI Product Image
+ */
+app.post("/api/products/generate-image", async (req, res) => {
+  try {
+    const { productId, productName, templateKey } = req.body;
+
+    if (!productId || !productName) {
+      return res.status(400).json({ 
+        error: "Product ID and name are required" 
+      });
+    }
+
+    console.log(`🎨 Generating AI image for product: ${productName}`);
+
+    // Get session
+    const session = await getSessionFromRequest(req);
+    if (!session) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    // Generate enhanced prompt with Gemini
+    const result = await generateProductImage(productName, templateKey || "ecommerce_white");
+
+    res.json({
+      success: true,
+      productId,
+      productName,
+      ...result,
+      note: "Use this enhanced prompt with DALL-E 3, Midjourney, or Stable Diffusion to generate the actual image.",
+    });
+
+  } catch (error) {
+    console.error("❌ Error generating AI image:", error);
+    res.status(500).json({ error: "Failed to generate AI image" });
   }
 });
 
