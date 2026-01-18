@@ -295,7 +295,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     const {
       width = 848, // Leonardo UI tested dimensions (848 × 1264)
       height = 1264, // 2:3 aspect ratio for fashion photography
-      strength = 0.24, // OPTIMAL BALANCE: 0.24 (face changes, garment locked)
+      strength = 0.15, // OPTIMAL FOR FACE-ONLY: 0.15 (garments locked, only face changes)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
       customNegativePrompt = null, // User's custom negative prompt
@@ -306,39 +306,17 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
-    // Build prompt - use custom if provided, otherwise use ULTRA-MINIMAL "ZERO-EDIT" default
-    // NOTE: Leonardo AI analyzes init image automatically via img2img
-    // CRITICAL: init_strength 0.22 + alchemy OFF + minimal prompt = ZERO garment changes
+    // Build prompt - use custom if provided, otherwise use ULTRA-MINIMAL default
+    // CRITICAL: For face-only changes, keep prompt minimal and let init_strength do the work
     let prompt;
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      // DUAL-PRIORITY prompt: Garment preservation + Face replacement
-      prompt = `Image-to-image transformation. DUAL OBJECTIVES:
-
-OBJECTIVE 1 - ABSOLUTE GARMENT LOCK (HIGHEST PRIORITY):
-The clothing and all garment elements are COMPLETELY LOCKED and UNTOUCHABLE.
-ZERO modifications allowed to ANY garment aspect:
-- Colors, patterns, textures, fabrics (EXACT preservation)
-- Buttons, zippers, logos, text, embellishments (EXACT preservation)
-- Cuts, fits, shapes, draping, wrinkles, folds (EXACT preservation)
-- Seams, stitches, fabric tension, transparency (EXACT preservation)
-- Garment positioning and how clothes sit on body (EXACT preservation)
-
-ALSO preserve EXACTLY:
-- Body pose, stance, all hand/arm/leg positions
-- Camera angle, framing, composition
-- Lighting, shadows, highlights, studio setup
-- Background, floor, props
-- Image sharpness, quality
-
-OBJECTIVE 2 - FACE REPLACEMENT (SECONDARY):
-Replace the woman's face and hair with a CLEARLY DIFFERENT person.
-New model should have noticeably different facial features.
-Natural realistic appearance, professional fashion model look.`;
-      console.log(`✏️ Using DUAL-PRIORITY prompt (init_strength 0.24: garment lock + face change)`);
+      // MINIMAL PROMPT: Let init_strength control preservation, only guide face change
+      prompt = `Replace the woman's face with a different female model. Keep everything else identical: same outfit, same pose, same lighting, same background. Professional fashion photography, photorealistic.`;
+      console.log(`✏️ Using minimal prompt for face-only change (init_strength controls garment preservation)`);
     }
 
     // Ensure prompt doesn't exceed Leonardo's 1500 character limit
@@ -348,20 +326,8 @@ Natural realistic appearance, professional fashion model look.`;
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    // ULTRA-SPECIFIC Negative Prompt - PREVENT text/pattern/wrinkle loss
-    // Each line targets a specific preservation issue
-    const negativePrompt = customNegativePrompt || `ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, 
-modified buttons, modified zippers, 
-CHANGED TEXT ON CLOTHING, MISSING TEXT, ALTERED TEXT, BLURRED TEXT, FADED TEXT, REMOVED TEXT, text modification, logo change, brand name alteration, label change, text distortion,
-CHANGED PATTERN, MISSING PATTERN, ALTERED PATTERN, SIMPLIFIED PATTERN, BLURRED PATTERN, FADED PATTERN, pattern loss, design change, graphic modification, print alteration,
-CHANGED WRINKLES, SMOOTHED FABRIC, REMOVED WRINKLES, FLATTENED WRINKLES, ALTERED WRINKLES, fabric smoothing, wrinkle removal, artificial smoothness, ironed look,
-modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY fold change, ANY draping change, 
-garment deformation, fabric distortion, clothing replacement, outfit substitution, 
-ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, 
-ANY camera angle change, ANY framing change, ANY composition change, 
-ANY lighting change, ANY shadow change, ANY background change, ANY prop change, 
-beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, 
-deformed, distorted, blurry, low quality, unrealistic, artifacts, noise`;
+    // ULTRA-MINIMAL Negative Prompt - Let init_strength handle preservation
+    const negativePrompt = customNegativePrompt || `different outfit, changed clothing, modified garments, different pose, different background, different lighting, beauty filter, smooth skin, cartoon, illustration, 3d render, painting, deformed, distorted, blurry, low quality, unrealistic`;
 
     console.log(`🚫 Negative prompt length: ${negativePrompt.length} chars`);
 
@@ -467,15 +433,16 @@ deformed, distorted, blurry, low quality, unrealistic, artifacts, noise`;
       
       // CRITICAL PRESERVATION PARAMETERS:
       // Lower init_strength = stronger preservation of original structure
-      init_strength: 0.18, // ULTRA LOW: 0.18 = maximum garment/text/pattern preservation
+      // For face-only changes: 0.15-0.18 range keeps garments 100% intact
+      init_strength: 0.15, // ULTRA LOW: 0.15 = maximum garment/pose/background preservation, only face changes
       
       // Higher guidance_scale = stronger adherence to prompt (and negative prompt)
-      guidance_scale: 9.0, // HIGH: 9.0 = strong prompt adherence (prevents unwanted changes)
+      guidance_scale: 7.5, // BALANCED: 7.5 = natural face change without over-processing
       
       // Fixed seed for consistency
       seed: 12345,
       
-      // CRITICAL: alchemy and photoReal MUST be OFF to preserve garments!
+      // CRITICAL: alchemy and photoReal MUST be OFF to preserve garments perfectly!
       // Alchemy modifies clothing details, causing changes to fabric, wrinkles, colors
       alchemy: false,
       photoReal: false,
@@ -486,10 +453,10 @@ deformed, distorted, blurry, low quality, unrealistic, artifacts, noise`;
       num_inference_steps: 40, // More steps = better quality and preservation (default: 30-40)
     };
 
-    console.log(`🔒 ULTRA PRESERVATION MODE (No ControlNet):`);
-    console.log(`   - init_strength: 0.18 (ULTRA LOW for max preservation)`);
-    console.log(`   - guidance_scale: 9.0 (HIGH for prompt adherence)`);
-    console.log(`   - num_inference_steps: 40 (more quality)`);
+    console.log(`🔒 FACE-ONLY CHANGE MODE (Garment Preservation):`);
+    console.log(`   - init_strength: 0.15 (ULTRA LOW - only face changes, garments locked)`);
+    console.log(`   - guidance_scale: 7.5 (BALANCED - natural face replacement)`);
+    console.log(`   - num_inference_steps: 40 (high quality)`);
     console.log(`   - alchemy: false, photoReal: false, promptMagic: false`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
