@@ -268,7 +268,7 @@ app.get("/api/ai/templates", (req, res) => {
  */
 app.post("/api/products/generate-image", async (req, res) => {
   try {
-    const { productId, productName, templateKey, uploadToShopify, modelType, quality, size } = req.body;
+    const { productId, productName, currentImageUrl, templateKey, uploadToShopify, modelType, quality, size } = req.body;
 
     if (!productId || !productName) {
       return res.status(400).json({ 
@@ -277,6 +277,7 @@ app.post("/api/products/generate-image", async (req, res) => {
     }
 
     console.log(`🎨 Generating AI image for product: ${productName}`);
+    console.log(`📸 Existing image: ${currentImageUrl ? 'YES - will analyze' : 'NO - text-only prompt'}`);
 
     // Get session
     const session = await getSessionFromRequest(req);
@@ -290,6 +291,7 @@ app.post("/api/products/generate-image", async (req, res) => {
       templateKey || "ecommerce_white",
       modelType || "openai",
       {
+        currentImageUrl: currentImageUrl, // Pass existing image for analysis
         quality: quality || "standard",
         size: size || "1024x1024",
       }

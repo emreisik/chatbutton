@@ -318,6 +318,7 @@ function App() {
           body: JSON.stringify({
             productId: product.id,
             productName: product.title,
+            currentImageUrl: product.image, // Send existing image for AI analysis
             templateKey: selectedTemplate,
             modelType: selectedModel,
             quality: selectedQuality,

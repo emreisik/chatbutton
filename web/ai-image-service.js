@@ -56,7 +56,63 @@ export const PROMPT_TEMPLATES = {
 };
 
 /**
- * OpenAI DALL-E 3 ile Görsel Üret
+ * Mevcut Ürün Görselini GPT-4 Vision ile Analiz Et
+ */
+export async function analyzeProductImage(imageUrl, productName) {
+  if (!openai) {
+    throw new Error("OpenAI API key not configured.");
+  }
+
+  try {
+    console.log(`🔍 Analyzing existing product image with GPT-4 Vision...`);
+    console.log(`📷 Image URL: ${imageUrl}`);
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this product image in detail. Describe:
+1. Product type (clothing, accessory, etc.)
+2. Color(s) - be very specific
+3. Style and design details
+4. Material/texture appearance
+5. Any patterns or decorations
+6. Key features that make it unique
+
+Product name for reference: ${productName}
+
+Provide a detailed, objective description that can be used to recreate this product in a new photo setting.`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 500,
+    });
+
+    const analysis = response.choices[0].message.content;
+    console.log(`✅ Product analyzed successfully!`);
+    console.log(`📝 Analysis: ${analysis.substring(0, 200)}...`);
+
+    return analysis;
+
+  } catch (error) {
+    console.error("❌ GPT-4 Vision Analysis Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * OpenAI DALL-E 3 ile Görsel Üret (Mevcut Görselden)
  */
 export async function generateWithDALLE3(productName, templateKey = "ecommerce_white", options = {}) {
   if (!openai) {
@@ -69,11 +125,48 @@ export async function generateWithDALLE3(productName, templateKey = "ecommerce_w
       throw new Error(`Template not found: ${templateKey}`);
     }
 
-    const prompt = template.prompt(productName);
-    console.log(`🎨 Generating image with DALL-E 3 for: ${productName}`);
-    console.log(`📝 Prompt: ${prompt}`);
+    const { quality = "standard", size = "1024x1024", currentImageUrl, productAnalysis } = options;
 
-    const { quality = "standard", size = "1024x1024" } = options;
+    let prompt;
+
+    // If we have analysis from existing image, use it
+    if (productAnalysis) {
+      console.log(`🎨 Generating NEW image based on existing product analysis`);
+      
+      // Create template-specific prompt using the analysis
+      const templateInstructions = {
+        female_model: "Beautiful young female model wearing this product, professional fashion photography, elegant pose, natural lighting, lifestyle setting, modern and trendy",
+        ecommerce_white: "Professional e-commerce product photography, clean white background, studio lighting, high resolution, centered composition",
+        lifestyle: "Product in a beautiful lifestyle setting, natural environment, warm lighting, cozy atmosphere, real-life usage scenario",
+        studio_premium: "Luxury studio photography, dramatic lighting, elegant composition, high-end fashion aesthetic, soft shadows",
+        minimalist: "Minimalist product photography, simple composition, neutral tones, clean lines, modern aesthetic",
+        luxury_fashion: "High-end luxury fashion photography, sophisticated model, glamorous setting, dramatic lighting, editorial style, vogue magazine aesthetic",
+      };
+
+      const styleInstruction = templateInstructions[templateKey] || templateInstructions.ecommerce_white;
+
+      prompt = `Create a professional product photograph with the following specifications:
+
+PRODUCT DETAILS (from existing image):
+${productAnalysis}
+
+PHOTOGRAPHY STYLE:
+${styleInstruction}
+
+Requirements:
+- Maintain exact product appearance (colors, design, details)
+- Professional photography quality
+- Photorealistic, high resolution 8K
+- Focus on showcasing the product beautifully
+- ${templateKey === 'female_model' ? 'Include an attractive female model wearing/using the product' : 'Product-focused composition'}`;
+
+    } else {
+      // Fallback to simple text prompt
+      prompt = template.prompt(productName);
+    }
+
+    console.log(`🎨 Generating image with DALL-E 3 for: ${productName}`);
+    console.log(`📝 Prompt: ${prompt.substring(0, 200)}...`);
 
     // Generate image with DALL-E 3
     const response = await openai.images.generate({
@@ -82,14 +175,14 @@ export async function generateWithDALLE3(productName, templateKey = "ecommerce_w
       n: 1,
       size: size,
       quality: quality,
-      response_format: "url", // or "b64_json"
+      response_format: "url",
     });
 
     const imageUrl = response.data[0].url;
     const revisedPrompt = response.data[0].revised_prompt;
 
     console.log(`✅ Image generated successfully with DALL-E 3!`);
-    console.log(`🔗 Image URL: ${imageUrl}`);
+    console.log(`🔗 New Image URL: ${imageUrl}`);
 
     return {
       success: true,
@@ -101,6 +194,7 @@ export async function generateWithDALLE3(productName, templateKey = "ecommerce_w
       model: "dall-e-3",
       quality: quality,
       size: size,
+      usedExistingImage: !!productAnalysis,
     };
 
   } catch (error) {
@@ -115,6 +209,17 @@ export async function generateWithDALLE3(productName, templateKey = "ecommerce_w
 export async function generateProductImage(productName, templateKey = "ecommerce_white", modelType = "openai", options = {}) {
   // Use OpenAI DALL-E 3 if specified and configured
   if (modelType === "openai" && openai) {
+    // If we have an existing image URL, analyze it first
+    if (options.currentImageUrl) {
+      try {
+        console.log(`📸 Analyzing existing product image before generation...`);
+        const productAnalysis = await analyzeProductImage(options.currentImageUrl, productName);
+        options.productAnalysis = productAnalysis;
+      } catch (error) {
+        console.error("⚠️ Failed to analyze existing image, continuing with text-only prompt:", error.message);
+      }
+    }
+    
     return await generateWithDALLE3(productName, templateKey, options);
   }
 
