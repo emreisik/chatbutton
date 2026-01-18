@@ -636,21 +636,38 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
 
     const { fields, url: uploadUrl, id: imageId } = uploadResponse.data.uploadInitImage;
 
-    // Step 2: Upload image to presigned URL
-    console.log(`📤 Step 2/4: Uploading image data...`);
+    // Step 2: Upload image to presigned URL (S3)
+    console.log(`📤 Step 2/4: Uploading image data to S3...`);
     const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
     
     const formData = new FormData();
-    Object.entries(fields).forEach(([key, value]) => {
-      formData.append(key, value);
+    
+    // Add all S3 fields FIRST (order matters for S3!)
+    if (fields) {
+      Object.entries(fields).forEach(([key, value]) => {
+        formData.append(key, value);
+        console.log(`  → Field: ${key}`);
+      });
+    }
+    
+    // Add file LAST with proper content type
+    formData.append("file", Buffer.from(imageResponse.data), {
+      filename: "image.jpg",
+      contentType: "image/jpeg",
     });
-    formData.append("file", Buffer.from(imageResponse.data), { filename: "image.jpg" });
+    
+    console.log(`📤 Uploading to: ${uploadUrl}`);
+    console.log(`📦 Form data size: ${imageResponse.data.byteLength} bytes`);
 
     await axios.post(uploadUrl, formData, {
-      headers: formData.getHeaders(),
+      headers: {
+        ...formData.getHeaders(),
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
     });
 
-    console.log(`✅ Image uploaded, ID: ${imageId}`);
+    console.log(`✅ Image uploaded to S3, ID: ${imageId}`);
 
     // Step 3: Generate image with img2img
     console.log(`🎨 Step 3/4: Generating new image...`);
