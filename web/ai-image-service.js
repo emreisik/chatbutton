@@ -2,12 +2,18 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
+import FormData from "form-data";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAvwKgDX5Qv0Ah78Qi1xFu7NZtiHMXXyWo";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const LEONARDO_API_KEY = process.env.LEONARDO_API_KEY;
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+
+// Leonardo AI configuration
+const LEONARDO_API_URL = "https://cloud.leonardo.ai/api/rest/v1";
+const LEONARDO_MODEL_ID = "1e60896f-3c26-4296-8ecc-53e2afecc132"; // Leonardo Kino XL
 
 // Cloudinary configuration (optional - for image hosting)
 if (process.env.CLOUDINARY_CLOUD_NAME) {
@@ -507,7 +513,152 @@ export async function uploadBase64ToCloudinary(base64Data, fileName = "ai-produc
   }
 }
 
+/**
+ * Leonardo AI Image-to-Image Generation
+ * Uses img2img for perfect outfit/pose preservation
+ */
+export async function generateWithLeonardo(imageUrl, productName, productAnalysis, modelType = "caucasian", options = {}) {
+  if (!LEONARDO_API_KEY) {
+    throw new Error("Leonardo API key not configured. Add LEONARDO_API_KEY to environment variables.");
+  }
+
+  try {
+    const {
+      width = 1024,
+      height = 1536, // 2:3 aspect ratio for fashion photography
+      strength = 0.5, // How much to change from original (0.3-0.7 recommended)
+    } = options;
+
+    const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
+
+    // Build prompt
+    const prompt = `Replace the woman with a different female model - ${modelDesc}. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.
+
+${productAnalysis ? `\nREFERENCE TO PRESERVE:\n${productAnalysis}` : ''}`;
+
+    const negativePrompt = `different clothes, altered outfit, changed colors, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, blurry, low quality, amateur, cartoon, illustration`;
+
+    console.log(`🎨 Generating with Leonardo AI (img2img)...`);
+    console.log(`📝 Prompt preview: ${prompt.substring(0, 150)}...`);
+
+    // Step 1: Upload init image
+    console.log(`📤 Step 1/4: Uploading init image...`);
+    const uploadResponse = await axios.post(
+      `${LEONARDO_API_URL}/init-image`,
+      { extension: "jpg" },
+      {
+        headers: {
+          Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const { fields, url: uploadUrl, id: imageId } = uploadResponse.data.uploadInitImage;
+
+    // Step 2: Upload image to presigned URL
+    console.log(`📤 Step 2/4: Uploading image data...`);
+    const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    
+    const formData = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    formData.append("file", Buffer.from(imageResponse.data), { filename: "image.jpg" });
+
+    await axios.post(uploadUrl, formData, {
+      headers: formData.getHeaders(),
+    });
+
+    console.log(`✅ Image uploaded, ID: ${imageId}`);
+
+    // Step 3: Generate image with img2img
+    console.log(`🎨 Step 3/4: Generating new image...`);
+    const generationResponse = await axios.post(
+      `${LEONARDO_API_URL}/generations`,
+      {
+        prompt: prompt,
+        negative_prompt: negativePrompt,
+        modelId: LEONARDO_MODEL_ID,
+        width: width,
+        height: height,
+        num_images: 1,
+        init_image_id: imageId,
+        init_strength: strength,
+        guidance_scale: 7,
+        photoReal: true, // Photorealistic mode
+        photoRealVersion: "v2",
+        presetStyle: "FASHION", // Fashion photography preset
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const generationId = generationResponse.data.sdGenerationJob.generationId;
+    console.log(`🔄 Generation ID: ${generationId}`);
+
+    // Step 4: Poll for completion
+    console.log(`⏳ Step 4/4: Waiting for generation to complete...`);
+    let completed = false;
+    let attempts = 0;
+    let imageResult = null;
+
+    while (!completed && attempts < 60) {
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+      
+      const statusResponse = await axios.get(
+        `${LEONARDO_API_URL}/generations/${generationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          },
+        }
+      );
+
+      const generation = statusResponse.data.generations_by_pk;
+      
+      if (generation.status === "COMPLETE") {
+        completed = true;
+        imageResult = generation.generated_images[0].url;
+        console.log(`✅ Generation complete!`);
+      } else if (generation.status === "FAILED") {
+        throw new Error("Leonardo generation failed");
+      } else {
+        console.log(`⏳ Status: ${generation.status} (attempt ${attempts + 1}/60)`);
+      }
+      
+      attempts++;
+    }
+
+    if (!imageResult) {
+      throw new Error("Leonardo generation timeout after 3 minutes");
+    }
+
+    console.log(`🖼️ Image URL: ${imageResult}`);
+
+    return {
+      success: true,
+      imageGenerated: true,
+      imageUrl: imageResult,
+      model: "leonardo-photoreal",
+      method: "img2img",
+      prompt: prompt,
+      strength: strength,
+      dimensions: `${width}x${height}`,
+    };
+
+  } catch (error) {
+    console.error("❌ Leonardo AI Error:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
 console.log("🎨 AI Image Service initialized");
 console.log(`🤖 Gemini API: ${GEMINI_API_KEY ? 'Configured' : 'Not configured'}`);
 console.log(`🎨 OpenAI API: ${OPENAI_API_KEY ? 'Configured' : 'Not configured'}`);
+console.log(`🎨 Leonardo API: ${LEONARDO_API_KEY ? 'Configured' : 'Not configured'}`);
 console.log(`📋 Available templates: ${Object.keys(PROMPT_TEMPLATES).join(", ")}`);

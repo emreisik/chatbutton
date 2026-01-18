@@ -9,7 +9,9 @@ import { shopify } from "./shopify-config.js";
 import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
 import { 
-  generateProductImage, 
+  generateProductImage,
+  generateWithLeonardo,
+  analyzeProductImage, 
   PROMPT_TEMPLATES,
   MODEL_TYPES, 
   uploadImageToShopify,
@@ -303,6 +305,7 @@ app.post("/api/products/generate-image", async (req, res) => {
     console.log(`🎨 Generating AI image for product: ${productName}`);
     console.log(`📸 Existing image: ${currentImageUrl ? 'YES - will analyze' : 'NO - text-only prompt'}`);
     console.log(`👤 Model persona: ${modelPersona || 'caucasian (default)'}`);
+    console.log(`🤖 AI Model: ${modelType || 'openai'}`);
 
     // Get session
     const session = await getSessionFromRequest(req);
@@ -310,20 +313,104 @@ app.post("/api/products/generate-image", async (req, res) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Generate image with selected AI model
-    const result = await generateProductImage(
-      productName, 
-      templateKey || "ecommerce_white",
-      modelType || "openai",
-      {
-        currentImageUrl: currentImageUrl, // Pass existing image for analysis
-        quality: quality || "standard",
-        size: size || "1024x1024",
-        modelType: modelPersona || "caucasian", // Pass model persona
-      }
-    );
+    let result;
 
-    // If image was generated (base64 data exists)
+    // Leonardo AI (img2img) - Best for outfit/pose preservation
+    if (modelType === "leonardo" && currentImageUrl) {
+      console.log(`🎨 Using Leonardo AI (img2img)...`);
+      
+      // Analyze existing image first
+      let productAnalysis = null;
+      try {
+        productAnalysis = await analyzeProductImage(currentImageUrl, productName);
+      } catch (error) {
+        console.error("⚠️ Failed to analyze image:", error.message);
+      }
+
+      result = await generateWithLeonardo(
+        currentImageUrl,
+        productName,
+        productAnalysis,
+        modelPersona || "caucasian",
+        {
+          width: 1024,
+          height: 1536, // 2:3 ratio for fashion
+          strength: 0.5, // Balanced change
+        }
+      );
+    }
+    // DALL-E 3 or Gemini fallback
+    else {
+      console.log(`🎨 Using ${modelType || 'openai'}...`);
+      result = await generateProductImage(
+        productName, 
+        templateKey || "ecommerce_white",
+        modelType || "openai",
+        {
+          currentImageUrl: currentImageUrl,
+          quality: quality || "standard",
+          size: size || "1024x1024",
+          modelType: modelPersona || "caucasian",
+        }
+      );
+    }
+
+    // Leonardo AI returns direct image URL
+    if (result.imageUrl && !result.imageData) {
+      console.log(`📤 Leonardo image URL received: ${result.imageUrl}`);
+
+      if (uploadToShopify) {
+        try {
+          const client = new shopify.clients.Rest({
+            session,
+            apiVersion: shopify.config.apiVersion,
+          });
+
+          const shopifyImage = await uploadImageToShopify(
+            client,
+            productId,
+            result.imageUrl,
+            productName
+          );
+
+          console.log(`✅ Leonardo image uploaded to Shopify product ${productId}`);
+
+          return res.json({
+            success: true,
+            productId,
+            productName,
+            imageGenerated: true,
+            imageUrl: result.imageUrl,
+            shopifyImageId: shopifyImage.id,
+            ...result,
+          });
+        } catch (shopifyError) {
+          console.error("❌ Error uploading Leonardo image to Shopify:", shopifyError);
+          return res.json({
+            success: true,
+            productId,
+            productName,
+            imageGenerated: true,
+            imageUrl: result.imageUrl,
+            shopifyUploadFailed: true,
+            shopifyError: shopifyError.message,
+            ...result,
+          });
+        }
+      }
+
+      // Return Leonardo image URL
+      return res.json({
+        success: true,
+        productId,
+        productName,
+        imageGenerated: true,
+        imageUrl: result.imageUrl,
+        ...result,
+      });
+    }
+
+    // If image was generated as base64 (DALL-E / Gemini)
     if (result.imageData) {
       console.log(`📤 Image generated! Size: ${result.imageData.length} bytes`);
 

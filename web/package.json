@@ -18,7 +18,8 @@
     "serve-static": "^1.15.0",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.4.5",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "form-data": "^4.0.0"
   },
   "engines": {
     "node": "20.x"

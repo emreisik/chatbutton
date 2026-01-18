@@ -880,11 +880,19 @@ function App() {
                     <Select
                       label="Model"
                       options={[
-                        { label: "🎨 OpenAI DALL-E 3 (Önerilen)", value: "openai" },
+                        { label: "🎨 Leonardo AI PhotoReal - img2img ($0.018/görsel)", value: "leonardo" },
+                        { label: "🎨 OpenAI DALL-E 3 HD ($0.08/görsel)", value: "openai" },
                         { label: "🤖 Google Gemini 2.0", value: "gemini" },
                       ]}
                       value={selectedModel}
                       onChange={setSelectedModel}
+                      helpText={
+                        selectedModel === "leonardo" 
+                          ? "✅ En iyi kıyafet/poz koruması! 600+ görsel/ay için ekonomik."
+                          : selectedModel === "openai"
+                          ? "Hızlı sonuç, düşük hacim için uygun."
+                          : "Deneysel, prompt optimizasyonu."
+                      }
                     />
                   </BlockStack>
                 </div>
@@ -935,6 +943,32 @@ function App() {
                 </Card>
               )}
 
+              {/* Leonardo AI Info */}
+              {selectedModel === "leonardo" && (
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        🎨 Leonardo AI PhotoReal
+                      </Text>
+                      <Text as="p" tone="subdued">
+                        <strong>img2img teknolojisi:</strong> Mevcut görseli analiz edip sadece yüzü değiştirir.
+                      </Text>
+                      <Text as="p" tone="success">
+                        ✅ Kıyafet, poz, ışık %100 korunur<br/>
+                        ✅ 2:3 oran (1024x1536) - fashion için ideal<br/>
+                        ✅ PhotoReal v2 - ultra gerçekçi yüzler<br/>
+                        ✅ ~40 saniye/görsel<br/>
+                        ✅ ~$0.018/görsel (600+ görselde ekonomik)
+                      </Text>
+                      <Text as="p" tone="subdued" variant="bodySm">
+                        <strong>Not:</strong> Leonardo AI için mevcut görsel zorunludur. img2img modu kullanılır.
+                      </Text>
+                    </BlockStack>
+                  </div>
+                </Card>
+              )}
+
               {/* DALL-E 3 Options */}
               {selectedModel === "openai" && (
                 <Card>
@@ -962,6 +996,9 @@ function App() {
                         value={selectedSize}
                         onChange={setSelectedSize}
                       />
+                      <Text as="p" tone="subdued" variant="bodySm">
+                        <strong>Maliyet:</strong> Standard $0.04/görsel | HD $0.08/görsel
+                      </Text>
                     </BlockStack>
                   </div>
                 </Card>
