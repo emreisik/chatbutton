@@ -69,6 +69,7 @@ function App() {
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
+  const [uploadToShopify, setUploadToShopify] = React.useState(true);
   
   // Get App Bridge instance (if embedded)
   let app = null;
@@ -315,6 +316,7 @@ function App() {
             productId: product.id,
             productName: product.title,
             templateKey: selectedTemplate,
+            uploadToShopify: uploadToShopify,
           }),
         });
 
@@ -324,8 +326,11 @@ function App() {
           productId: product.id,
           productName: product.title,
           success: data.success,
+          imageGenerated: data.imageGenerated || false,
+          imageUrl: data.imageUrl || null,
           prompt: data.prompt,
           templateUsed: data.templateUsed,
+          uploadedToShopify: data.shopifyImageId ? true : false,
         });
 
         setGenerationProgress(((i + 1) / totalProducts) * 100);
@@ -343,11 +348,25 @@ function App() {
     }
 
     setGeneratingImages(false);
-    setBanner({
-      status: "success",
-      title: `${results.filter(r => r.success).length} ürün için AI prompt oluşturuldu!`,
-      content: "Prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanabilirsiniz.",
-    });
+    
+    const imagesGenerated = results.filter(r => r.imageGenerated).length;
+    const uploadedToShopify = results.filter(r => r.uploadedToShopify).length;
+    
+    if (imagesGenerated > 0) {
+      setBanner({
+        status: "success",
+        title: `${imagesGenerated} görsel oluşturuldu!`,
+        content: uploadedToShopify > 0 
+          ? `${uploadedToShopify} görsel Shopify'a yüklendi!` 
+          : "Görseller oluşturuldu. Cloudinary yapılandırması ile otomatik yükleme yapabilirsiniz.",
+      });
+    } else {
+      setBanner({
+        status: "success",
+        title: `${results.filter(r => r.success).length} ürün için AI prompt oluşturuldu!`,
+        content: "Prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanabilirsiniz.",
+      });
+    }
   };
 
   const filters = [
@@ -797,8 +816,13 @@ function App() {
                       onChange={setSelectedTemplate}
                     />
                     <Text as="p" tone="subdued" variant="bodyS">
-                      Seçilen stil ile tüm ürünler için AI fotoğraf prompt'ları oluşturulacak.
+                      Seçilen stil ile tüm ürünler için AI fotoğraflar oluşturulacak.
                     </Text>
+                    <Checkbox
+                      label="Oluşturulan görselleri otomatik olarak Shopify'a yükle"
+                      checked={uploadToShopify}
+                      onChange={setUploadToShopify}
+                    />
                   </BlockStack>
                 </div>
               </Card>
@@ -836,17 +860,46 @@ function App() {
                             <Text as="p" fontWeight="semibold">
                               {result.success ? "✅" : "❌"} {result.productName}
                             </Text>
-                            {result.success && (
-                              <div style={{ 
-                                padding: "0.5rem", 
-                                background: "white", 
-                                borderRadius: "4px",
-                                fontSize: "0.85em",
-                                fontFamily: "monospace",
-                              }}>
-                                {result.prompt}
+                            
+                            {/* Image Preview */}
+                            {result.imageUrl && (
+                              <div style={{ marginTop: "0.5rem" }}>
+                                <img 
+                                  src={result.imageUrl} 
+                                  alt={result.productName}
+                                  style={{ 
+                                    width: "100%", 
+                                    maxWidth: "300px",
+                                    borderRadius: "8px",
+                                    border: "1px solid #e0e0e0",
+                                  }}
+                                />
+                                {result.uploadedToShopify && (
+                                  <Badge status="success" style={{ marginTop: "0.5rem" }}>
+                                    Shopify'a Yüklendi
+                                  </Badge>
+                                )}
                               </div>
                             )}
+                            
+                            {result.success && result.prompt && (
+                              <details style={{ marginTop: "0.5rem" }}>
+                                <summary style={{ cursor: "pointer", fontSize: "0.9em" }}>
+                                  Prompt'u Göster
+                                </summary>
+                                <div style={{ 
+                                  padding: "0.5rem", 
+                                  background: "white", 
+                                  borderRadius: "4px",
+                                  fontSize: "0.85em",
+                                  fontFamily: "monospace",
+                                  marginTop: "0.5rem",
+                                }}>
+                                  {result.prompt}
+                                </div>
+                              </details>
+                            )}
+                            
                             {result.error && (
                               <Text as="p" tone="critical" variant="bodyS">
                                 {result.error}
@@ -855,11 +908,19 @@ function App() {
                           </BlockStack>
                         </div>
                       ))}
-                      <Banner status="info">
-                        <Text as="p" variant="bodyS">
-                          Bu prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanarak gerçek görseller oluşturabilirsiniz.
-                        </Text>
-                      </Banner>
+                      {generationResults.some(r => r.imageGenerated) ? (
+                        <Banner status="success">
+                          <Text as="p" variant="bodyS">
+                            ✨ Gemini 2.0 ile görsel üretimi başarılı! Cloudinary yapılandırması ile görseller otomatik olarak saklanır ve Shopify'a yüklenebilir.
+                          </Text>
+                        </Banner>
+                      ) : (
+                        <Banner status="info">
+                          <Text as="p" variant="bodyS">
+                            Bu prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanarak gerçek görseller oluşturabilirsiniz.
+                          </Text>
+                        </Banner>
+                      )}
                     </BlockStack>
                   </div>
                 </Card>

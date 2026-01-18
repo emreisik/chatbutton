@@ -1,8 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAvwKgDX5Qv0Ah78Qi1xFu7NZtiHMXXyWo";
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+
+// Cloudinary configuration (optional - for image hosting)
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+  console.log("☁️ Cloudinary configured for image storage");
+}
 
 /**
  * E-ticaret Prompt Şablonları
@@ -41,9 +52,7 @@ export const PROMPT_TEMPLATES = {
 };
 
 /**
- * Gemini ile Görsel Üret
- * Not: Gemini şu an görsel üretemiyor, ancak prompt'u optimize edebiliriz
- * Gerçek üretim için Imagen veya DALL-E 3 kullanılmalı
+ * Gemini 2.0 ile Görsel Üret (Imagen 3)
  */
 export async function generateProductImage(productName, templateKey = "ecommerce_white") {
   try {
@@ -56,10 +65,60 @@ export async function generateProductImage(productName, templateKey = "ecommerce
     console.log(`🎨 Generating image for: ${productName}`);
     console.log(`📝 Prompt: ${prompt}`);
 
-    // Gemini Pro Vision model
+    // Try Gemini 2.0 Flash (with image generation)
+    try {
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+          temperature: 0.9,
+          topP: 0.95,
+          topK: 40,
+        },
+      });
+
+      console.log(`🚀 Using Gemini 2.0 Flash for image generation...`);
+      
+      const result = await model.generateContent([
+        {
+          text: `Generate a high-quality product image based on this description:\n\n${prompt}\n\nCreate a professional, photorealistic image suitable for e-commerce.`,
+        },
+      ]);
+
+      const response = result.response;
+      
+      // Check if image was generated
+      if (response.candidates && response.candidates[0]) {
+        const candidate = response.candidates[0];
+        
+        // Look for image data in the response
+        if (candidate.content && candidate.content.parts) {
+          for (const part of candidate.content.parts) {
+            if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+              console.log(`✅ Image generated successfully!`);
+              
+              return {
+                success: true,
+                imageData: part.inlineData.data,
+                mimeType: part.inlineData.mimeType,
+                prompt: prompt,
+                templateUsed: template.name,
+                model: "gemini-2.0-flash-exp",
+              };
+            }
+          }
+        }
+      }
+
+      // If no image in response, fall back to prompt enhancement
+      console.log(`⚠️ No image generated, falling back to prompt optimization...`);
+      
+    } catch (imageError) {
+      console.log(`⚠️ Image generation failed, using prompt optimization fallback:`, imageError.message);
+    }
+
+    // Fallback: Optimize prompt with Gemini Pro
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-    // Optimize prompt with Gemini
     const enhancedPromptResult = await model.generateContent([
       `You are a professional product photographer. Enhance this product photography prompt to make it more detailed and effective for AI image generation. Return ONLY the enhanced prompt, nothing else:\n\n${prompt}`,
     ]);
@@ -67,18 +126,13 @@ export async function generateProductImage(productName, templateKey = "ecommerce
     const enhancedPrompt = enhancedPromptResult.response.text().trim();
     console.log(`✨ Enhanced Prompt: ${enhancedPrompt}`);
 
-    // NOT: Gerçek görsel üretimi için aşağıdaki servisleri kullan:
-    // 1. Google Imagen API (https://cloud.google.com/vertex-ai/docs/generative-ai/image/overview)
-    // 2. OpenAI DALL-E 3
-    // 3. Midjourney API
-    // 4. Stable Diffusion
-
     return {
       success: true,
       prompt: enhancedPrompt,
       originalPrompt: prompt,
       templateUsed: template.name,
-      message: "Prompt optimized successfully. Use this with an image generation API.",
+      message: "Prompt optimized successfully. Use this with DALL-E 3, Midjourney or Stable Diffusion.",
+      model: "gemini-pro",
     };
 
   } catch (error) {
@@ -114,16 +168,47 @@ export async function uploadImageToShopify(shopifyClient, productId, imageUrl, a
 }
 
 /**
- * Base64'ten Image URL'e Çevir (örnek)
+ * Base64 Image'i Cloudinary'ye Upload Et
  */
-export async function uploadBase64ToCloudStorage(base64Data) {
-  // Bu fonksiyon için Cloudinary, AWS S3, veya başka bir storage servisi kullanılmalı
-  // Şimdilik placeholder
-  console.log("📦 Base64 data received, needs cloud storage implementation");
-  return {
-    url: "https://placeholder.com/image.jpg",
-    message: "Implement cloud storage (Cloudinary/AWS S3) for actual upload",
-  };
+export async function uploadBase64ToCloudinary(base64Data, fileName = "ai-product") {
+  try {
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      console.log("⚠️ Cloudinary not configured, skipping upload");
+      return {
+        success: false,
+        message: "Cloudinary not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET to environment variables.",
+      };
+    }
+
+    console.log(`☁️ Uploading image to Cloudinary...`);
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(
+      `data:image/png;base64,${base64Data}`,
+      {
+        folder: "shopify-products",
+        public_id: `${fileName}-${Date.now()}`,
+        resource_type: "image",
+      }
+    );
+
+    console.log(`✅ Image uploaded to Cloudinary: ${result.secure_url}`);
+
+    return {
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+      width: result.width,
+      height: result.height,
+    };
+
+  } catch (error) {
+    console.error("❌ Cloudinary Upload Error:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
 }
 
 console.log("🎨 AI Image Service initialized with Gemini API");

@@ -8,7 +8,12 @@ import dotenv from "dotenv";
 import { shopify } from "./shopify-config.js";
 import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
-import { generateProductImage, PROMPT_TEMPLATES, uploadImageToShopify } from "./ai-image-service.js";
+import { 
+  generateProductImage, 
+  PROMPT_TEMPLATES, 
+  uploadImageToShopify,
+  uploadBase64ToCloudinary,
+} from "./ai-image-service.js";
 
 // Load environment variables
 dotenv.config();
@@ -207,7 +212,7 @@ app.get("/api/ai/templates", (req, res) => {
  */
 app.post("/api/products/generate-image", async (req, res) => {
   try {
-    const { productId, productName, templateKey } = req.body;
+    const { productId, productName, templateKey, uploadToShopify } = req.body;
 
     if (!productId || !productName) {
       return res.status(400).json({ 
@@ -223,20 +228,83 @@ app.post("/api/products/generate-image", async (req, res) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Generate enhanced prompt with Gemini
+    // Generate image with Gemini 2.0
     const result = await generateProductImage(productName, templateKey || "ecommerce_white");
 
+    // If image was generated (base64 data exists)
+    if (result.imageData) {
+      console.log(`📤 Image generated! Size: ${result.imageData.length} bytes`);
+
+      // Upload to Cloudinary (if configured)
+      const uploadResult = await uploadBase64ToCloudinary(result.imageData, `product-${productId}`);
+
+      if (uploadResult.success && uploadToShopify) {
+        // Upload to Shopify
+        try {
+          const client = new shopify.clients.Rest({
+            session,
+            apiVersion: shopify.config.apiVersion,
+          });
+
+          const shopifyImage = await uploadImageToShopify(
+            client,
+            productId,
+            uploadResult.url,
+            productName
+          );
+
+          console.log(`✅ Image uploaded to Shopify product ${productId}`);
+
+          return res.json({
+            success: true,
+            productId,
+            productName,
+            imageGenerated: true,
+            imageUrl: uploadResult.url,
+            shopifyImageId: shopifyImage.id,
+            ...result,
+          });
+
+        } catch (shopifyError) {
+          console.error("❌ Error uploading to Shopify:", shopifyError);
+          return res.json({
+            success: true,
+            productId,
+            productName,
+            imageGenerated: true,
+            imageUrl: uploadResult.url,
+            shopifyUploadFailed: true,
+            shopifyError: shopifyError.message,
+            ...result,
+          });
+        }
+      }
+
+      // Return image URL
+      return res.json({
+        success: true,
+        productId,
+        productName,
+        imageGenerated: true,
+        imageUrl: uploadResult.success ? uploadResult.url : null,
+        cloudinaryConfigured: uploadResult.success,
+        ...result,
+      });
+    }
+
+    // No image generated - return enhanced prompt
     res.json({
       success: true,
       productId,
       productName,
+      imageGenerated: false,
       ...result,
-      note: "Use this enhanced prompt with DALL-E 3, Midjourney, or Stable Diffusion to generate the actual image.",
+      note: "Use this enhanced prompt with DALL-E 3, Midjourney, or Stable Diffusion.",
     });
 
   } catch (error) {
     console.error("❌ Error generating AI image:", error);
-    res.status(500).json({ error: "Failed to generate AI image" });
+    res.status(500).json({ error: "Failed to generate AI image", details: error.message });
   }
 });
 
