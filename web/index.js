@@ -322,9 +322,13 @@ app.post("/api/products/generate-image", async (req, res) => {
       // Analyze existing image first
       let productAnalysis = null;
       try {
+        console.log(`🔍 Analyzing image: ${currentImageUrl}`);
         productAnalysis = await analyzeProductImage(currentImageUrl, productName);
+        console.log(`✅ Analysis complete: ${productAnalysis ? productAnalysis.substring(0, 100) : 'null'}...`);
       } catch (error) {
         console.error("⚠️ Failed to analyze image:", error.message);
+        console.error("⚠️ Analysis error details:", error);
+        // Continue without analysis - Leonardo can still work
       }
 
       result = await generateWithLeonardo(
@@ -483,7 +487,18 @@ app.post("/api/products/generate-image", async (req, res) => {
 
   } catch (error) {
     console.error("❌ Error generating AI image:", error);
-    res.status(500).json({ error: "Failed to generate AI image", details: error.message });
+    console.error("❌ Full error:", error);
+    console.error("❌ Stack:", error.stack);
+    
+    res.status(500).json({ 
+      error: "Failed to generate AI image", 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      modelType: modelType,
+      hasCurrentImage: !!currentImageUrl,
+      hasLeonardoKey: !!process.env.LEONARDO_API_KEY,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+    });
   }
 });
 
