@@ -9,7 +9,6 @@ import { shopify } from "./shopify-config.js";
 import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
 import { 
-  generateProductImage,
   generateWithLeonardo,
   LEONARDO_MODELS, 
   uploadImageToShopify,
