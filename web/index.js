@@ -308,13 +308,10 @@ app.post("/api/products/generate-image", async (req, res) => {
       productId, 
       productName, 
       currentImageUrl, 
-      templateKey, 
       uploadToShopify, 
-      modelType, 
       leonardoModel,
-      quality, 
-      size,
-      modelPersona,
+      customPrompt, // User's custom prompt
+      customNegativePrompt, // User's custom negative prompt
       imageId, // For unique job ID per image
     } = req.body;
 
@@ -373,17 +370,19 @@ app.post("/api/products/generate-image", async (req, res) => {
         }
 
         console.log(`🎨 [${jobId}] Generating with Leonardo AI...`);
+        console.log(`📝 [${jobId}] Custom Prompt: ${customPrompt ? 'YES' : 'NO (using default)'}`);
         
         const result = await generateWithLeonardo(
           currentImageUrl,
           productName,
           productAnalysis,
-          modelPersona || "caucasian",
           {
             width: 1024,
             height: 1536,
             strength: 0.5,
             leonardoModel: leonardoModel || "nano-banana-pro",
+            customPrompt: customPrompt, // User's custom prompt
+            customNegativePrompt: customNegativePrompt, // User's custom negative prompt
           }
         );
 

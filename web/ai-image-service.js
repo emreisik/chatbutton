@@ -579,7 +579,7 @@ export async function uploadBase64ToCloudinary(base64Data, fileName = "ai-produc
  * Leonardo AI Image-to-Image Generation
  * Uses img2img for perfect outfit/pose preservation
  */
-export async function generateWithLeonardo(imageUrl, productName, productAnalysis, modelType = "caucasian", options = {}) {
+export async function generateWithLeonardo(imageUrl, productName, productAnalysis, options = {}) {
   if (!LEONARDO_API_KEY) {
     throw new Error("Leonardo API key not configured. Add LEONARDO_API_KEY to environment variables.");
   }
@@ -590,6 +590,8 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       height = 1536, // 2:3 aspect ratio for fashion photography
       strength = 0.5, // How much to change from original (0.3-0.7 recommended)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
+      customPrompt = null, // User's custom prompt
+      customNegativePrompt = null, // User's custom negative prompt
     } = options;
 
     const selectedModel = LEONARDO_MODELS[leonardoModel] || LEONARDO_MODELS[DEFAULT_LEONARDO_MODEL];
@@ -597,18 +599,27 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
+    // Build prompt - use custom if provided, otherwise use default
+    let prompt;
+    if (customPrompt) {
+      // User provided custom prompt
+      prompt = customPrompt;
+      // Append product analysis if available
+      if (productAnalysis) {
+        prompt += `\n\nREFERENCE TO PRESERVE:\n${productAnalysis}`;
+      }
+      console.log(`✏️ Using custom prompt from user`);
+    } else {
+      // Default prompt (fallback)
+      prompt = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.${productAnalysis ? `\n\nREFERENCE TO PRESERVE:\n${productAnalysis}` : ''}`;
+      console.log(`✏️ Using default prompt`);
+    }
 
-    const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
-
-    // Build prompt
-    const prompt = `Replace the woman with a different female model - ${modelDesc}. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.
-
-${productAnalysis ? `\nREFERENCE TO PRESERVE:\n${productAnalysis}` : ''}`;
-
-    const negativePrompt = `different clothes, altered outfit, changed colors, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, blurry, low quality, amateur, cartoon, illustration`;
+    const negativePrompt = customNegativePrompt || `different clothes, altered outfit, changed colors, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, blurry, low quality, amateur, cartoon, illustration`;
 
     console.log(`🎨 Generating with Leonardo AI (img2img)...`);
-    console.log(`📝 Prompt preview: ${prompt.substring(0, 150)}...`);
+    console.log(`📝 Prompt preview: ${prompt.substring(0, 200)}...`);
+    console.log(`🚫 Negative prompt: ${negativePrompt.substring(0, 100)}...`);
 
     // Step 1: Upload init image
     console.log(`📤 Step 1/4: Uploading init image...`);

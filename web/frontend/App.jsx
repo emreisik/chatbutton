@@ -64,12 +64,14 @@ function App() {
   
   // AI Modal state'leri
   const [aiModalActive, setAiModalActive] = React.useState(false);
-  const [aiTemplates, setAiTemplates] = React.useState([]);
-  const [modelTypes, setModelTypes] = React.useState([]); // Model persona tipleri
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
-  const [selectedTemplate, setSelectedTemplate] = React.useState("female_model"); // Default: Kadın model
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
-  const [selectedModelPersona, setSelectedModelPersona] = React.useState("caucasian"); // Aynı kadın için
+  const [customPrompt, setCustomPrompt] = React.useState(
+    "replace the woman with a different female model, keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing, only change the face and hair of the woman, realistic fashion model, natural skin texture, professional studio look"
+  ); // Custom prompt
+  const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
+    "different clothes, altered jacket, changed pants, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, unnatural skin texture, amateur or unprofessional look, blurry face, obscured face, cartoon, illustration, painting, drawing, low quality, bad anatomy, deformed, ugly, disfigured"
+  ); // Negative prompt
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
@@ -86,34 +88,8 @@ function App() {
   // Load products on mount
   React.useEffect(() => {
     loadProducts();
-    loadAITemplates();
-    loadModelTypes();
     loadLeonardoModels();
   }, []);
-
-  // Load AI templates
-  const loadAITemplates = async () => {
-    try {
-      const response = await fetch("/api/ai/templates");
-      const data = await response.json();
-      setAiTemplates(data.templates || []);
-      console.log("✅ AI Templates loaded:", data.templates);
-    } catch (error) {
-      console.error("❌ Failed to load AI templates:", error);
-    }
-  };
-
-  // Load Model Types (for consistent female model)
-  const loadModelTypes = async () => {
-    try {
-      const response = await fetch("/api/ai/model-types");
-      const data = await response.json();
-      setModelTypes(data.modelTypes || []);
-      console.log("✅ Model Types loaded:", data.modelTypes);
-    } catch (error) {
-      console.error("❌ Failed to load model types:", error);
-    }
-  };
 
   // Load Leonardo AI Models
   const loadLeonardoModels = async () => {
@@ -376,10 +352,10 @@ function App() {
               productName: product.title,
               currentImageUrl: image.url,
               imageId: image.id, // For unique job ID
-              templateKey: selectedTemplate,
               modelType: "leonardo",
               leonardoModel: selectedLeonardoModel,
-              modelPersona: selectedModelPersona,
+              customPrompt: customPrompt, // Custom user prompt
+              customNegativePrompt: customNegativePrompt, // Custom negative prompt
               uploadToShopify: uploadToShopify,
             }),
           });
@@ -436,7 +412,6 @@ function App() {
             creditsUsed: finalResult.creditsUsed,
             modelName: finalResult.modelName,
             uploadedToShopify: !!finalResult.shopifyImageId,
-            modelPersona: selectedModelPersona,
           });
 
           totalImagesProcessed++;
@@ -968,44 +943,33 @@ function App() {
                 </div>
               </Card>
 
-              {/* Prompt Şablonu Seçimi */}
+              {/* Custom Prompt */}
               <Card>
                 <div style={{ padding: "1rem" }}>
-                  <BlockStack gap="300">
-                    <Text as="h3" variant="headingSm" fontWeight="semibold">
-                      Fotoğraf Stili
-                    </Text>
-                    <Select
-                      label="Prompt Şablonu"
-                      options={aiTemplates.map((t) => ({
-                        label: t.name,
-                        value: t.id,
-                      }))}
-                      value={selectedTemplate}
-                      onChange={setSelectedTemplate}
+                  <BlockStack gap="400">
+                    <BlockStack gap="200">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        ✏️ Prompt (Görsel Tanımı)
+                      </Text>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Leonardo AI'a görselin nasıl olması gerektiğini anlatın. Bu prompt mevcut görseli analiz ettikten sonra kullanılacaktır.
+                      </Text>
+                    </BlockStack>
+                    <TextField
+                      label="Prompt"
+                      value={customPrompt}
+                      onChange={setCustomPrompt}
+                      multiline={6}
+                      autoComplete="off"
+                      helpText="Örnek: replace the woman with a different female model, keep the exact same outfit..."
                     />
-                  </BlockStack>
-                </div>
-              </Card>
-
-              {/* Model Persona - Tutarlı Kadın Modeli */}
-              <Card>
-                <div style={{ padding: "1rem" }}>
-                  <BlockStack gap="300">
-                    <Text as="h3" variant="headingSm" fontWeight="semibold">
-                      👤 Model Tipi (Tüm Görsellerde Aynı)
-                    </Text>
-                    <Text as="p" tone="subdued">
-                      Seçtiğiniz model tipi tüm görsellerde kullanılacak. Böylece tutarlı bir görünüm elde edilir.
-                    </Text>
-                    <Select
-                      label="Model"
-                      options={modelTypes.map((t) => ({
-                        label: t.name,
-                        value: t.id,
-                      }))}
-                      value={selectedModelPersona}
-                      onChange={setSelectedModelPersona}
+                    <TextField
+                      label="Negative Prompt (İstenmeyen Özellikler)"
+                      value={customNegativePrompt}
+                      onChange={setCustomNegativePrompt}
+                      multiline={4}
+                      autoComplete="off"
+                      helpText="Görselde istemediğiniz özellikleri belirtin"
                     />
                   </BlockStack>
                 </div>
