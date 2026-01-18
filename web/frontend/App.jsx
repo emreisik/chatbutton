@@ -366,35 +366,76 @@ function App() {
         try {
           console.log(`🎨 [${totalImagesProcessed + 1}/${totalImagesToProcess}] ${product.title} - Image ${image.id}`);
           
-          const response = await fetch("/api/products/generate-image", {
+          // Start async generation
+          const startResponse = await fetch("/api/products/generate-image", {
             method: "POST",
             headers: headers,
             credentials: "include",
             body: JSON.stringify({
               productId: product.id,
               productName: product.title,
-              currentImageUrl: image.url, // Each existing image
+              currentImageUrl: image.url,
+              imageId: image.id, // For unique job ID
               templateKey: selectedTemplate,
-              modelType: "leonardo", // Always Leonardo AI
-              leonardoModel: selectedLeonardoModel, // Selected Leonardo model
-              modelPersona: selectedModelPersona, // Same female model for all images
+              modelType: "leonardo",
+              leonardoModel: selectedLeonardoModel,
+              modelPersona: selectedModelPersona,
               uploadToShopify: uploadToShopify,
             }),
           });
 
-          const data = await response.json();
+          const startData = await startResponse.json();
           
+          if (!startData.success || !startData.jobId) {
+            throw new Error(startData.error || "Failed to start generation");
+          }
+
+          console.log(`⏳ Job started: ${startData.jobId}`);
+
+          // Poll for completion
+          let attempts = 0;
+          const maxAttempts = 40; // 40 * 3s = 2 minutes max
+          let jobComplete = false;
+          let finalResult = null;
+
+          while (!jobComplete && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+            
+            const statusResponse = await fetch(`/api/generation-status/${startData.jobId}`, {
+              headers: headers,
+              credentials: "include",
+            });
+
+            const jobStatus = await statusResponse.json();
+            
+            console.log(`🔄 [${attempts + 1}/${maxAttempts}] Status: ${jobStatus.status}`);
+
+            if (jobStatus.status === "complete") {
+              jobComplete = true;
+              finalResult = jobStatus;
+              console.log(`✅ Generation complete! Image: ${jobStatus.imageUrl}`);
+            } else if (jobStatus.status === "failed") {
+              throw new Error(jobStatus.error || "Generation failed");
+            }
+
+            attempts++;
+          }
+
+          if (!jobComplete) {
+            throw new Error("Generation timeout after 2 minutes");
+          }
+
           results.push({
             productId: product.id,
             productName: product.title,
             imageId: image.id,
             originalImageUrl: image.url,
-            success: data.success,
-            imageGenerated: data.imageGenerated || false,
-            newImageUrl: data.imageUrl || null,
-            prompt: data.prompt,
-            templateUsed: data.templateUsed,
-            uploadedToShopify: data.shopifyImageId ? true : false,
+            success: true,
+            imageGenerated: true,
+            newImageUrl: finalResult.imageUrl,
+            creditsUsed: finalResult.creditsUsed,
+            modelName: finalResult.modelName,
+            uploadedToShopify: !!finalResult.shopifyImageId,
             modelPersona: selectedModelPersona,
           });
 

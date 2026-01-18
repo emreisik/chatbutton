@@ -29,6 +29,9 @@ const __dirname = dirname(__filename);
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const app = express();
 
+// In-memory job storage for async Leonardo AI generation
+const generationJobs = new Map();
+
 // Middleware
 app.use(cookieParser());
 app.use(express.json());
@@ -308,10 +311,11 @@ app.post("/api/products/generate-image", async (req, res) => {
       templateKey, 
       uploadToShopify, 
       modelType, 
-      leonardoModel, // Leonardo AI model selection
+      leonardoModel,
       quality, 
       size,
-      modelPersona // Model tipi (caucasian, asian, african, etc.)
+      modelPersona,
+      imageId, // For unique job ID per image
     } = req.body;
 
     if (!productId || !productName) {
@@ -320,122 +324,152 @@ app.post("/api/products/generate-image", async (req, res) => {
       });
     }
 
-    console.log(`🎨 Generating AI image for product: ${productName}`);
-    console.log(`📸 Existing image: ${currentImageUrl ? 'YES - will analyze' : 'NO - text-only prompt'}`);
-    console.log(`👤 Model persona: ${modelPersona || 'caucasian (default)'}`);
-    console.log(`🤖 AI Model: ${modelType || 'openai'}`);
-
     // Get session
     const session = await getSessionFromRequest(req);
     if (!session) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Leonardo AI - img2img required (current image must exist)
+    // Leonardo AI - img2img required
     if (!currentImageUrl) {
       return res.status(400).json({
-        error: "Leonardo AI requires an existing product image for img2img generation",
+        error: "Leonardo AI requires an existing product image",
         details: "Please select a product with existing images"
       });
     }
 
-    console.log(`🎨 Using Leonardo AI (img2img)...`);
-    console.log(`🤖 Model: ${leonardoModel || 'nano-banana-pro'}`);
+    // Generate unique job ID
+    const jobId = `${productId}-${imageId || Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // Analyze existing image first with GPT-4 Vision
-    let productAnalysis = null;
-    try {
-      console.log(`🔍 Analyzing image with GPT-4 Vision: ${currentImageUrl}`);
-      productAnalysis = await analyzeProductImage(currentImageUrl, productName);
-      console.log(`✅ Analysis complete: ${productAnalysis ? productAnalysis.substring(0, 100) : 'null'}...`);
-    } catch (error) {
-      console.error("⚠️ Failed to analyze image:", error.message);
-      console.error("⚠️ Analysis error details:", error);
-      // Continue without analysis - Leonardo can still work
-    }
+    console.log(`🎨 [${jobId}] Starting async generation for: ${productName}`);
 
-    const result = await generateWithLeonardo(
-      currentImageUrl,
-      productName,
-      productAnalysis,
-      modelPersona || "caucasian",
-      {
-        width: 1024,
-        height: 1536, // 2:3 ratio for fashion
-        strength: 0.5, // Balanced change
-        leonardoModel: leonardoModel || "nano-banana-pro", // Selected model
-      }
-    );
-
-    // Leonardo AI returns direct image URL
-    console.log(`📤 Leonardo image URL received: ${result.imageUrl}`);
-    console.log(`💰 Credits used: ${result.creditsUsed}`);
-
-    if (uploadToShopify) {
-      try {
-        const client = new shopify.clients.Rest({
-          session,
-          apiVersion: shopify.config.apiVersion,
-        });
-
-        const shopifyImage = await uploadImageToShopify(
-          client,
-          productId,
-          result.imageUrl,
-          productName
-        );
-
-        console.log(`✅ Leonardo image uploaded to Shopify product ${productId}`);
-
-        return res.json({
-          success: true,
-          productId,
-          productName,
-          imageGenerated: true,
-          imageUrl: result.imageUrl,
-          shopifyImageId: shopifyImage.id,
-          ...result,
-        });
-      } catch (shopifyError) {
-        console.error("❌ Error uploading Leonardo image to Shopify:", shopifyError);
-        return res.json({
-          success: true,
-          productId,
-          productName,
-          imageGenerated: true,
-          imageUrl: result.imageUrl,
-          shopifyUploadFailed: true,
-          shopifyError: shopifyError.message,
-          ...result,
-        });
-      }
-    }
-
-    // Return Leonardo image URL
-    res.json({
-      success: true,
+    // Store job info
+    generationJobs.set(jobId, {
+      status: "processing",
       productId,
       productName,
-      imageGenerated: true,
-      imageUrl: result.imageUrl,
-      ...result,
+      currentImageUrl,
+      startedAt: Date.now(),
     });
 
+    // Return immediately with job ID
+    res.json({
+      success: true,
+      status: "processing",
+      jobId,
+      message: "Generation started, poll for status",
+    });
+
+    // Process generation in background (don't await)
+    (async () => {
+      try {
+        console.log(`🔍 [${jobId}] Analyzing image...`);
+        
+        let productAnalysis = null;
+        try {
+          productAnalysis = await analyzeProductImage(currentImageUrl, productName);
+        } catch (error) {
+          console.error(`⚠️ [${jobId}] Analysis failed:`, error.message);
+        }
+
+        console.log(`🎨 [${jobId}] Generating with Leonardo AI...`);
+        
+        const result = await generateWithLeonardo(
+          currentImageUrl,
+          productName,
+          productAnalysis,
+          modelPersona || "caucasian",
+          {
+            width: 1024,
+            height: 1536,
+            strength: 0.5,
+            leonardoModel: leonardoModel || "nano-banana-pro",
+          }
+        );
+
+        console.log(`✅ [${jobId}] Generation complete!`);
+        console.log(`💰 [${jobId}] Credits: ${result.creditsUsed}`);
+
+        // Upload to Shopify if requested
+        let shopifyImageId = null;
+        if (uploadToShopify) {
+          try {
+            const client = new shopify.clients.Rest({
+              session,
+              apiVersion: shopify.config.apiVersion,
+            });
+
+            const shopifyImage = await uploadImageToShopify(
+              client,
+              productId,
+              result.imageUrl,
+              productName
+            );
+
+            shopifyImageId = shopifyImage.id;
+            console.log(`✅ [${jobId}] Uploaded to Shopify: ${shopifyImageId}`);
+          } catch (shopifyError) {
+            console.error(`⚠️ [${jobId}] Shopify upload failed:`, shopifyError.message);
+          }
+        }
+
+        // Update job status
+        generationJobs.set(jobId, {
+          status: "complete",
+          productId,
+          productName,
+          imageUrl: result.imageUrl,
+          creditsUsed: result.creditsUsed,
+          modelName: result.modelName,
+          shopifyImageId,
+          completedAt: Date.now(),
+        });
+
+      } catch (error) {
+        console.error(`❌ [${jobId}] Generation failed:`, error.message);
+        
+        generationJobs.set(jobId, {
+          status: "failed",
+          productId,
+          productName,
+          error: error.message,
+          failedAt: Date.now(),
+        });
+      }
+    })();
+
   } catch (error) {
-    console.error("❌ Error generating AI image:", error);
-    console.error("❌ Full error:", error);
-    console.error("❌ Stack:", error.stack);
+    console.error("❌ Error starting generation:", error);
     
     res.status(500).json({ 
-      error: "Failed to generate AI image", 
+      error: "Failed to start generation", 
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      modelType: modelType,
-      hasCurrentImage: !!currentImageUrl,
-      hasLeonardoKey: !!process.env.LEONARDO_API_KEY,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
     });
   }
+});
+
+/**
+ * API Endpoint: Get Generation Status (Polling)
+ */
+app.get("/api/generation-status/:jobId", (req, res) => {
+  const { jobId } = req.params;
+  
+  const job = generationJobs.get(jobId);
+  
+  if (!job) {
+    return res.status(404).json({
+      error: "Job not found",
+      jobId,
+    });
+  }
+
+  // Clean up completed/failed jobs after 5 minutes
+  const age = Date.now() - (job.completedAt || job.failedAt || job.startedAt || 0);
+  if ((job.status === "complete" || job.status === "failed") && age > 5 * 60 * 1000) {
+    generationJobs.delete(jobId);
+  }
+
+  res.json(job);
 });
 
 /**
