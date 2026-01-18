@@ -654,22 +654,33 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
 
     // Step 3: Generate image with img2img
     console.log(`🎨 Step 3/4: Generating new image...`);
+    console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
+    
+    // Build request body - only include supported parameters
+    const requestBody = {
+      prompt: prompt,
+      negative_prompt: negativePrompt,
+      modelId: modelId,
+      width: width,
+      height: height,
+      num_images: 1,
+      init_image_id: imageId,
+      init_strength: strength,
+      guidance_scale: 7,
+    };
+
+    // Only add photoReal for models that support it
+    if (selectedModel.features.includes("PhotoReal")) {
+      requestBody.photoReal = true;
+      requestBody.photoRealVersion = "v2";
+      console.log(`✨ PhotoReal enabled (v2)`);
+    }
+
+    console.log(`📤 Sending request to Leonardo AI...`);
+    
     const generationResponse = await axios.post(
       `${LEONARDO_API_URL}/generations`,
-      {
-        prompt: prompt,
-        negative_prompt: negativePrompt,
-        modelId: modelId, // Selected Leonardo model
-        width: width,
-        height: height,
-        num_images: 1,
-        init_image_id: imageId,
-        init_strength: strength,
-        guidance_scale: 7,
-        photoReal: selectedModel.features.includes("PhotoReal"), // PhotoReal if supported
-        photoRealVersion: "v2",
-        presetStyle: "FASHION", // Fashion photography preset
-      },
+      requestBody,
       {
         headers: {
           Authorization: `Bearer ${LEONARDO_API_KEY}`,
@@ -734,8 +745,22 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     };
 
   } catch (error) {
-    console.error("❌ Leonardo AI Error:", error.response?.data || error.message);
-    throw error;
+    console.error("❌ Leonardo AI Error:", error.message);
+    console.error("❌ Leonardo API Response:", error.response?.data);
+    console.error("❌ Leonardo API Status:", error.response?.status);
+    console.error("❌ Leonardo API URL:", error.config?.url);
+    
+    // Create a more detailed error message
+    const errorMessage = error.response?.data?.error || 
+                        error.response?.data?.message || 
+                        error.message || 
+                        "Leonardo AI request failed";
+    
+    const detailedError = new Error(errorMessage);
+    detailedError.response = error.response;
+    detailedError.originalError = error;
+    
+    throw detailedError;
   }
 }
 

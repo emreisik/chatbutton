@@ -391,6 +391,8 @@ function App() {
               finalResult = jobStatus;
               console.log(`✅ Generation complete! Image: ${jobStatus.imageUrl}`);
             } else if (jobStatus.status === "failed") {
+              console.error(`❌ Generation failed:`, jobStatus);
+              console.error(`❌ Error details:`, jobStatus.errorDetails);
               throw new Error(jobStatus.error || "Generation failed");
             }
 

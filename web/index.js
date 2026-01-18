@@ -426,12 +426,15 @@ app.post("/api/products/generate-image", async (req, res) => {
 
       } catch (error) {
         console.error(`❌ [${jobId}] Generation failed:`, error.message);
+        console.error(`❌ [${jobId}] Error details:`, error.response?.data || error);
         
         generationJobs.set(jobId, {
           status: "failed",
           productId,
           productName,
           error: error.message,
+          errorDetails: error.response?.data || error.toString(),
+          stack: error.stack,
           failedAt: Date.now(),
         });
       }
