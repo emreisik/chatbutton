@@ -348,8 +348,20 @@ Natural realistic appearance, professional fashion model look.`;
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    // MAXIMUM RESTRICTIVE Negative Prompt - ZERO TOLERANCE for garment changes
-    const negativePrompt = customNegativePrompt || `ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, modified buttons, modified zippers, modified text, modified logos, modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY wrinkle change, ANY fold change, ANY draping change, garment deformation, fabric distortion, clothing replacement, outfit substitution, ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, ANY camera angle change, ANY framing change, ANY composition change, ANY lighting change, ANY shadow change, ANY background change, ANY prop change, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, deformed, distorted, blurry, low quality, unrealistic`;
+    // ULTRA-SPECIFIC Negative Prompt - PREVENT text/pattern/wrinkle loss
+    // Each line targets a specific preservation issue
+    const negativePrompt = customNegativePrompt || `ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, 
+modified buttons, modified zippers, 
+CHANGED TEXT ON CLOTHING, MISSING TEXT, ALTERED TEXT, BLURRED TEXT, FADED TEXT, REMOVED TEXT, text modification, logo change, brand name alteration, label change, text distortion,
+CHANGED PATTERN, MISSING PATTERN, ALTERED PATTERN, SIMPLIFIED PATTERN, BLURRED PATTERN, FADED PATTERN, pattern loss, design change, graphic modification, print alteration,
+CHANGED WRINKLES, SMOOTHED FABRIC, REMOVED WRINKLES, FLATTENED WRINKLES, ALTERED WRINKLES, fabric smoothing, wrinkle removal, artificial smoothness, ironed look,
+modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY fold change, ANY draping change, 
+garment deformation, fabric distortion, clothing replacement, outfit substitution, 
+ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, 
+ANY camera angle change, ANY framing change, ANY composition change, 
+ANY lighting change, ANY shadow change, ANY background change, ANY prop change, 
+beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, 
+deformed, distorted, blurry, low quality, unrealistic, artifacts, noise`;
 
     console.log(`🚫 Negative prompt length: ${negativePrompt.length} chars`);
 
@@ -441,8 +453,9 @@ Natural realistic appearance, professional fashion model look.`;
     console.log(`🎨 Step 3/4: Generating new image...`);
     console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
     
-    // Build request body - MAXIMUM PRESERVATION with ControlNet
+    // Build request body - MAXIMUM PRESERVATION (Without ControlNet)
     // Leonardo API parameters optimized for ZERO garment changes
+    // NOTE: ControlNet is not supported in public API, using init_strength + guidance instead
     const requestBody = {
       prompt: prompt,
       negative_prompt: negativePrompt,
@@ -451,9 +464,16 @@ Natural realistic appearance, professional fashion model look.`;
       height: height,
       num_images: 1,
       init_image_id: imageId,
-      init_strength: strength, // 0.24 = balance between face change and garment lock
-      guidance_scale: 6.5, // Tuned for product-locked generation
-      seed: 12345, // Fixed seed for consistency (optional override via options)
+      
+      // CRITICAL PRESERVATION PARAMETERS:
+      // Lower init_strength = stronger preservation of original structure
+      init_strength: 0.18, // ULTRA LOW: 0.18 = maximum garment/text/pattern preservation
+      
+      // Higher guidance_scale = stronger adherence to prompt (and negative prompt)
+      guidance_scale: 9.0, // HIGH: 9.0 = strong prompt adherence (prevents unwanted changes)
+      
+      // Fixed seed for consistency
+      seed: 12345,
       
       // CRITICAL: alchemy and photoReal MUST be OFF to preserve garments!
       // Alchemy modifies clothing details, causing changes to fabric, wrinkles, colors
@@ -461,26 +481,16 @@ Natural realistic appearance, professional fashion model look.`;
       photoReal: false,
       promptMagic: false, // Disable prompt magic
       
-      // STRUCTURE PRESERVATION (prevents loss of text, patterns, wrinkles):
-      controlnetType: "DEPTH", // or "CANNY" - preserves structural details
-      controlnetWeight: 0.8, // High weight = strong structure preservation (0.7-0.9)
-      
-      // STYLE CONTROL:
-      presetStyle: "NONE", // No style transfer - keep original appearance
-      
-      // IMAGE FIDELITY:
-      tiling: false, // Disable tiling
+      // Additional supported parameters:
       public: false, // Private generation
-      nsfw: false, // Disable content filtering
-      contrastRatio: 1.0, // Keep original contrast
-      highContrast: false, // Don't enhance contrast
-      highResolution: false, // Standard resolution
+      num_inference_steps: 40, // More steps = better quality and preservation (default: 30-40)
     };
 
-    console.log(`🔒 MAXIMUM PRESERVATION MODE:`);
-    console.log(`   - alchemy: false, photoReal: false, strength: ${strength}`);
-    console.log(`   - controlnetType: DEPTH, controlnetWeight: 0.8`);
-    console.log(`   - presetStyle: NONE (no style transfer)`);
+    console.log(`🔒 ULTRA PRESERVATION MODE (No ControlNet):`);
+    console.log(`   - init_strength: 0.18 (ULTRA LOW for max preservation)`);
+    console.log(`   - guidance_scale: 9.0 (HIGH for prompt adherence)`);
+    console.log(`   - num_inference_steps: 40 (more quality)`);
+    console.log(`   - alchemy: false, photoReal: false, promptMagic: false`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
     
