@@ -293,8 +293,8 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
 
   try {
     const {
-      width = 1024,
-      height = 1536, // 2:3 aspect ratio for fashion photography
+      width = 848, // Leonardo UI tested dimensions (848 × 1264)
+      height = 1264, // 2:3 aspect ratio for fashion photography
       strength = 0.28, // CRITICAL: 0.28 for MAXIMUM garment preservation (DO NOT increase!)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
@@ -443,6 +443,7 @@ professional fashion editorial look, no beauty filter.`;
     console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
     
     // Build request body - PRODUCTION-TUNED for absolute garment preservation
+    // These settings match successful manual Leonardo UI test
     const requestBody = {
       prompt: prompt,
       negative_prompt: negativePrompt,
@@ -460,9 +461,15 @@ professional fashion editorial look, no beauty filter.`;
       alchemy: false,
       photoReal: false,
       promptMagic: false, // Also disable prompt magic
+      
+      // Leonardo UI successful settings (from manual test):
+      promptEnhance: true, // "Prompt Enhance: Auto" in UI
+      presetStyle: "DYNAMIC", // "Style: Dynamic" in UI
+      private: true, // "Private Mode: ON" in UI
     };
 
     console.log(`🔒 GARMENT LOCK MODE: alchemy=false, photoReal=false, strength=0.28`);
+    console.log(`🎨 Leonardo UI Settings: promptEnhance=true, style=DYNAMIC, private=true`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
     
