@@ -640,34 +640,50 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     console.log(`📤 Step 2/4: Uploading image data to S3...`);
     const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
     
+    console.log(`📤 Upload URL: ${uploadUrl}`);
+    console.log(`📦 Image size: ${imageResponse.data.byteLength} bytes`);
+    console.log(`📋 S3 fields received: ${fields ? Object.keys(fields).length : 0}`);
+    
+    // Create FormData with proper field ordering for S3
     const formData = new FormData();
     
-    // Add all S3 fields FIRST (order matters for S3!)
+    // Add all S3 fields FIRST (critical order for AWS S3!)
     if (fields) {
-      Object.entries(fields).forEach(([key, value]) => {
+      for (const [key, value] of Object.entries(fields)) {
         formData.append(key, value);
-        console.log(`  → Field: ${key}`);
-      });
+        const displayValue = typeof value === 'string' ? value.substring(0, 50) + (value.length > 50 ? '...' : '') : value;
+        console.log(`  ✓ ${key}: ${displayValue}`);
+      }
     }
     
-    // Add file LAST with proper content type
-    formData.append("file", Buffer.from(imageResponse.data), {
+    // Add file LAST (must be after all metadata fields)
+    const imageBuffer = Buffer.from(imageResponse.data);
+    formData.append("file", imageBuffer, {
       filename: "image.jpg",
       contentType: "image/jpeg",
+      knownLength: imageBuffer.length,
     });
     
-    console.log(`📤 Uploading to: ${uploadUrl}`);
-    console.log(`📦 Form data size: ${imageResponse.data.byteLength} bytes`);
+    console.log(`  ✓ file: image.jpg (${imageBuffer.length} bytes, image/jpeg)`);
 
-    await axios.post(uploadUrl, formData, {
-      headers: {
-        ...formData.getHeaders(),
-      },
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
+    // Upload to S3 with proper headers
+    try {
+      const uploadResult = await axios.post(uploadUrl, formData, {
+        headers: {
+          ...formData.getHeaders(),
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      });
+      
+      console.log(`✅ S3 upload successful! Status: ${uploadResult.status}`);
+    } catch (uploadError) {
+      console.error(`❌ S3 upload failed:`, uploadError.message);
+      console.error(`❌ S3 response:`, uploadError.response?.data);
+      throw uploadError;
+    }
 
-    console.log(`✅ Image uploaded to S3, ID: ${imageId}`);
+    console.log(`✅ Init image ID: ${imageId}`);
 
     // Step 3: Generate image with img2img
     console.log(`🎨 Step 3/4: Generating new image...`);
