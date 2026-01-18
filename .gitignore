@@ -15,10 +15,6 @@ yarn-error.log*
 .shopify/
 *.log
 
-# Session Storage (contains OAuth tokens)
-web/.sessions/
-.sessions/
-
 # Build outputs
 dist/
 build/

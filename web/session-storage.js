@@ -1,86 +1,127 @@
 /**
- * File-Based Session Storage
- * Persists sessions across Railway restarts (unlike in-memory storage)
+ * PostgreSQL Session Storage (Neon)
+ * Persists sessions across Railway restarts in cloud database
  */
 
 import { Session } from "@shopify/shopify-api";
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import pg from "pg";
+import dotenv from "dotenv";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+dotenv.config();
 
-// Storage directory for session files
-const STORAGE_DIR = process.env.SESSION_STORAGE_DIR || join(__dirname, ".sessions");
+const { Pool } = pg;
 
-// Create directory if it doesn't exist
-if (!existsSync(STORAGE_DIR)) {
-  mkdirSync(STORAGE_DIR, { recursive: true });
-  console.log(`📁 Created session storage directory: ${STORAGE_DIR}`);
+// Initialize PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, // Required for Neon
+  },
+});
+
+// Create sessions table if it doesn't exist
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS shopify_sessions (
+        id VARCHAR(255) PRIMARY KEY,
+        shop VARCHAR(255) NOT NULL,
+        state VARCHAR(255),
+        is_online BOOLEAN DEFAULT false,
+        scope TEXT,
+        access_token TEXT,
+        expires TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    
+    // Create index for faster shop lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_shop ON shopify_sessions(shop);
+    `);
+    
+    console.log("✅ Database initialized successfully");
+  } catch (error) {
+    console.error("❌ Database initialization error:", error);
+  }
 }
 
-function getFilePath(sessionId) {
-  // Sanitize session ID for safe filename
-  const safeId = sessionId.replace(/[^a-zA-Z0-9-_]/g, "_");
-  return join(STORAGE_DIR, `${safeId}.json`);
-}
+// Initialize database on startup
+await initDatabase();
 
 export const sessionStorage = {
   storeSession: async (session) => {
     try {
-      const filePath = getFilePath(session.id);
+      const query = `
+        INSERT INTO shopify_sessions (id, shop, state, is_online, scope, access_token, expires, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        ON CONFLICT (id) 
+        DO UPDATE SET 
+          shop = EXCLUDED.shop,
+          state = EXCLUDED.state,
+          is_online = EXCLUDED.is_online,
+          scope = EXCLUDED.scope,
+          access_token = EXCLUDED.access_token,
+          expires = EXCLUDED.expires,
+          updated_at = NOW()
+      `;
       
-      // Convert session to plain object for JSON storage
-      const sessionData = {
-        id: session.id,
-        shop: session.shop,
-        state: session.state,
-        isOnline: session.isOnline,
-        scope: session.scope,
-        accessToken: session.accessToken,
-        expires: session.expires,
-      };
+      const values = [
+        session.id,
+        session.shop,
+        session.state || null,
+        session.isOnline || false,
+        session.scope || null,
+        session.accessToken || null,
+        session.expires ? new Date(session.expires) : null,
+      ];
 
-      writeFileSync(filePath, JSON.stringify(sessionData, null, 2), "utf-8");
-      console.log(`✅ Session saved to file: ${session.shop}`);
+      await pool.query(query, values);
+      console.log(`✅ Session saved to database: ${session.shop}`);
       return true;
     } catch (error) {
-      console.error("❌ Error saving session to file:", error);
+      console.error("❌ Error saving session to database:", error);
       return false;
     }
   },
 
   loadSession: async (id) => {
     try {
-      const filePath = getFilePath(id);
-      
-      if (!existsSync(filePath)) {
+      const result = await pool.query(
+        "SELECT * FROM shopify_sessions WHERE id = $1",
+        [id]
+      );
+
+      if (result.rows.length === 0) {
         return undefined;
       }
 
-      const sessionData = JSON.parse(readFileSync(filePath, "utf-8"));
+      const row = result.rows[0];
       
       // Recreate Session object
-      const session = new Session(sessionData);
-      
-      console.log(`✅ Session loaded from file: ${session.shop}`);
+      const session = new Session({
+        id: row.id,
+        shop: row.shop,
+        state: row.state,
+        isOnline: row.is_online,
+        scope: row.scope,
+        accessToken: row.access_token,
+        expires: row.expires ? new Date(row.expires).getTime() : undefined,
+      });
+
+      console.log(`✅ Session loaded from database: ${session.shop}`);
       return session;
     } catch (error) {
-      console.error("❌ Error loading session from file:", error);
+      console.error("❌ Error loading session from database:", error);
       return undefined;
     }
   },
 
   deleteSession: async (id) => {
     try {
-      const filePath = getFilePath(id);
-      
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-        console.log(`🗑️  Session deleted: ${id}`);
-      }
-      
+      await pool.query("DELETE FROM shopify_sessions WHERE id = $1", [id]);
+      console.log(`🗑️  Session deleted: ${id}`);
       return true;
     } catch (error) {
       console.error("❌ Error deleting session:", error);
@@ -89,27 +130,37 @@ export const sessionStorage = {
   },
 
   deleteSessions: async (ids) => {
-    for (const id of ids) {
-      await sessionStorage.deleteSession(id);
+    try {
+      await pool.query(
+        "DELETE FROM shopify_sessions WHERE id = ANY($1)",
+        [ids]
+      );
+      console.log(`🗑️  ${ids.length} sessions deleted`);
+      return true;
+    } catch (error) {
+      console.error("❌ Error deleting sessions:", error);
+      return false;
     }
-    return true;
   },
 
   findSessionsByShop: async (shop) => {
     try {
-      const files = readdirSync(STORAGE_DIR);
-      const sessions = [];
+      const result = await pool.query(
+        "SELECT * FROM shopify_sessions WHERE shop = $1",
+        [shop]
+      );
 
-      for (const file of files) {
-        if (file.endsWith(".json")) {
-          const filePath = join(STORAGE_DIR, file);
-          const sessionData = JSON.parse(readFileSync(filePath, "utf-8"));
-          
-          if (sessionData.shop === shop) {
-            sessions.push(new Session(sessionData));
-          }
-        }
-      }
+      const sessions = result.rows.map((row) => {
+        return new Session({
+          id: row.id,
+          shop: row.shop,
+          state: row.state,
+          isOnline: row.is_online,
+          scope: row.scope,
+          accessToken: row.access_token,
+          expires: row.expires ? new Date(row.expires).getTime() : undefined,
+        });
+      });
 
       return sessions;
     } catch (error) {
@@ -119,4 +170,13 @@ export const sessionStorage = {
   },
 };
 
-console.log(`💾 File-based session storage initialized: ${STORAGE_DIR}`);
+console.log("💾 PostgreSQL session storage initialized (Neon)");
+
+// Test database connection
+pool.query("SELECT NOW()", (err, res) => {
+  if (err) {
+    console.error("❌ Database connection failed:", err.message);
+  } else {
+    console.log(`✅ Database connected successfully at ${res.rows[0].now}`);
+  }
+});
