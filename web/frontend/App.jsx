@@ -17,6 +17,10 @@ import {
   Text,
   BlockStack,
   InlineStack,
+  Filters,
+  ChoiceList,
+  TextField,
+  Select,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 
@@ -41,6 +45,12 @@ function App() {
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [banner, setBanner] = React.useState(null);
+  
+  // Filtreleme state'leri
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState([]);
+  const [stockFilter, setStockFilter] = React.useState([]);
+  const [sortValue, setSortValue] = React.useState("name-asc");
   
   // Get App Bridge instance (if embedded)
   let app = null;
@@ -126,8 +136,121 @@ function App() {
     loadProducts();
   };
 
+  // Filtreleme ve sıralama fonksiyonları
+  const getFilteredAndSortedProducts = () => {
+    let filtered = [...products];
+
+    // Arama filtresi
+    if (searchQuery) {
+      filtered = filtered.filter((product) =>
+        product.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Durum filtresi
+    if (statusFilter.length > 0) {
+      filtered = filtered.filter((product) =>
+        statusFilter.includes(product.status)
+      );
+    }
+
+    // Stok filtresi
+    if (stockFilter.length > 0) {
+      filtered = filtered.filter((product) => {
+        const inStock = product.inventory > 0;
+        if (stockFilter.includes("in_stock") && inStock) return true;
+        if (stockFilter.includes("out_of_stock") && !inStock) return true;
+        return false;
+      });
+    }
+
+    // Sıralama
+    const [sortKey, sortDirection] = sortValue.split("-");
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortKey === "name") {
+        comparison = a.title.localeCompare(b.title, "tr");
+      } else if (sortKey === "price") {
+        comparison = parseFloat(a.price) - parseFloat(b.price);
+      } else if (sortKey === "stock") {
+        comparison = a.inventory - b.inventory;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
+    return filtered;
+  };
+
+  const filteredProducts = getFilteredAndSortedProducts();
+
+  // Filtreleri temizle
+  const handleClearAll = () => {
+    setSearchQuery("");
+    setStatusFilter([]);
+    setStockFilter([]);
+  };
+
+  const filters = [
+    {
+      key: "status",
+      label: "Durum",
+      filter: (
+        <ChoiceList
+          title="Ürün Durumu"
+          titleHidden
+          choices={[
+            { label: "Aktif", value: "active" },
+            { label: "Pasif", value: "draft" },
+          ]}
+          selected={statusFilter}
+          onChange={setStatusFilter}
+          allowMultiple
+        />
+      ),
+      shortcut: true,
+    },
+    {
+      key: "stock",
+      label: "Stok",
+      filter: (
+        <ChoiceList
+          title="Stok Durumu"
+          titleHidden
+          choices={[
+            { label: "Stokta Var", value: "in_stock" },
+            { label: "Stokta Yok", value: "out_of_stock" },
+          ]}
+          selected={stockFilter}
+          onChange={setStockFilter}
+          allowMultiple
+        />
+      ),
+      shortcut: true,
+    },
+  ];
+
+  const appliedFilters = [];
+  
+  if (statusFilter.length > 0) {
+    appliedFilters.push({
+      key: "status",
+      label: `Durum: ${statusFilter.map(s => s === "active" ? "Aktif" : "Pasif").join(", ")}`,
+      onRemove: () => setStatusFilter([]),
+    });
+  }
+  
+  if (stockFilter.length > 0) {
+    appliedFilters.push({
+      key: "stock",
+      label: `Stok: ${stockFilter.map(s => s === "in_stock" ? "Var" : "Yok").join(", ")}`,
+      onRemove: () => setStockFilter([]),
+    });
+  }
+
   // Tablo satırları oluştur
-  const rows = products.map((product) => [
+  const rows = filteredProducts.map((product) => [
     // Ürün adı ve resim
     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
       {product.image ? (
@@ -182,7 +305,7 @@ function App() {
   return (
     <Page
         title="Ürünlerim"
-        subtitle={`Toplam ${products.length} ürün`}
+        subtitle={`${filteredProducts.length} / ${products.length} ürün gösteriliyor`}
         primaryAction={{
           content: "Yenile",
           onAction: refreshProducts,
@@ -212,28 +335,87 @@ function App() {
           )}
 
           <Layout.Section>
+            {/* Arama ve Filtreler */}
+            <Card>
+              <div style={{ padding: "1rem" }}>
+                <BlockStack gap="400">
+                  {/* Arama ve Sıralama */}
+                  <InlineStack gap="400" align="space-between" blockAlign="center">
+                    <div style={{ flex: 1 }}>
+                      <TextField
+                        placeholder="Ürün ara..."
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        clearButton
+                        onClearButtonClick={() => setSearchQuery("")}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div style={{ minWidth: "200px" }}>
+                      <Select
+                        label="Sırala"
+                        labelInline
+                        options={[
+                          { label: "İsim (A-Z)", value: "name-asc" },
+                          { label: "İsim (Z-A)", value: "name-desc" },
+                          { label: "Fiyat (Düşük-Yüksek)", value: "price-asc" },
+                          { label: "Fiyat (Yüksek-Düşük)", value: "price-desc" },
+                          { label: "Stok (Az-Çok)", value: "stock-asc" },
+                          { label: "Stok (Çok-Az)", value: "stock-desc" },
+                        ]}
+                        value={sortValue}
+                        onChange={setSortValue}
+                      />
+                    </div>
+                  </InlineStack>
+
+                  {/* Filtreler */}
+                  <Filters
+                    queryValue={searchQuery}
+                    queryPlaceholder="Ürün ara..."
+                    filters={filters}
+                    appliedFilters={appliedFilters}
+                    onQueryChange={setSearchQuery}
+                    onQueryClear={() => setSearchQuery("")}
+                    onClearAll={handleClearAll}
+                  />
+                </BlockStack>
+              </div>
+            </Card>
+
             {loading ? (
               <Card>
                 <div style={{ padding: "1rem" }}>
                   <SkeletonBodyText lines={10} />
                 </div>
               </Card>
-            ) : products.length === 0 ? (
+            ) : filteredProducts.length === 0 ? (
               <Card>
                 <EmptyState
-                  heading="Henüz ürün yok"
-                  action={{
-                    content: "Ürün Ekle",
-                    onAction: () => {
-                      window.open(
-                        "https://admin.shopify.com/store/web-health-developer/products/new",
-                        "_blank"
-                      );
-                    },
-                  }}
+                  heading={products.length === 0 ? "Henüz ürün yok" : "Filtreye uygun ürün bulunamadı"}
+                  action={
+                    products.length === 0
+                      ? {
+                          content: "Ürün Ekle",
+                          onAction: () => {
+                            window.open(
+                              "https://admin.shopify.com/store/web-health-developer/products/new",
+                              "_blank"
+                            );
+                          },
+                        }
+                      : {
+                          content: "Filtreleri Temizle",
+                          onAction: handleClearAll,
+                        }
+                  }
                   image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                 >
-                  <p>İlk ürününüzü ekleyerek başlayın!</p>
+                  <p>
+                    {products.length === 0
+                      ? "İlk ürününüzü ekleyerek başlayın!"
+                      : "Farklı filtreler deneyerek arama yapabilirsiniz."}
+                  </p>
                 </EmptyState>
               </Card>
             ) : (
@@ -259,31 +441,36 @@ function App() {
                 </div>
                 <div style={{ padding: "0 1rem 1rem 1rem" }}>
                   <BlockStack gap="400">
-                  <InlineStack align="space-between">
-                    <Text as="span" tone="subdued">Toplam Ürün:</Text>
-                    <Text as="span" fontWeight="bold">{products.length}</Text>
-                  </InlineStack>
-                  
-                  <InlineStack align="space-between">
-                    <Text as="span" tone="subdued">Aktif Ürünler:</Text>
-                    <Text as="span" fontWeight="bold">
-                      {products.filter((p) => p.status === "active").length}
-                    </Text>
-                  </InlineStack>
-                  
-                  <InlineStack align="space-between">
-                    <Text as="span" tone="subdued">Stokta Var:</Text>
-                    <Text as="span" fontWeight="bold">
-                      {products.filter((p) => p.inventory > 0).length}
-                    </Text>
-                  </InlineStack>
-                  
-                  <InlineStack align="space-between">
-                    <Text as="span" tone="subdued">Stokta Yok:</Text>
-                    <Text as="span" fontWeight="bold">
-                      {products.filter((p) => p.inventory === 0).length}
-                    </Text>
-                  </InlineStack>
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Gösterilen:</Text>
+                                  <Text as="span" fontWeight="bold">{filteredProducts.length}</Text>
+                                </InlineStack>
+                                
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Toplam Ürün:</Text>
+                                  <Text as="span" fontWeight="bold">{products.length}</Text>
+                                </InlineStack>
+                                
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Aktif Ürünler:</Text>
+                                  <Text as="span" fontWeight="bold">
+                                    {filteredProducts.filter((p) => p.status === "active").length}
+                                  </Text>
+                                </InlineStack>
+                                
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Stokta Var:</Text>
+                                  <Text as="span" fontWeight="bold">
+                                    {filteredProducts.filter((p) => p.inventory > 0).length}
+                                  </Text>
+                                </InlineStack>
+                                
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Stokta Yok:</Text>
+                                  <Text as="span" fontWeight="bold">
+                                    {filteredProducts.filter((p) => p.inventory === 0).length}
+                                  </Text>
+                                </InlineStack>
                 </BlockStack>
                 </div>
               </Card>
