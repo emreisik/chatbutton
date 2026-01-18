@@ -21,6 +21,7 @@ import {
   ChoiceList,
   TextField,
   Select,
+  Checkbox,
 } from "@shopify/polaris";
 import "@shopify/polaris/build/esm/styles.css";
 
@@ -50,7 +51,11 @@ function App() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState([]);
   const [stockFilter, setStockFilter] = React.useState([]);
+  const [vendorFilter, setVendorFilter] = React.useState([]);
   const [sortValue, setSortValue] = React.useState("name-asc");
+  
+  // Seçim state'leri
+  const [selectedProducts, setSelectedProducts] = React.useState([]);
   
   // Get App Bridge instance (if embedded)
   let app = null;
@@ -164,6 +169,13 @@ function App() {
       });
     }
 
+    // Satıcı filtresi
+    if (vendorFilter.length > 0) {
+      filtered = filtered.filter((product) =>
+        vendorFilter.includes(product.vendor)
+      );
+    }
+
     // Sıralama
     const [sortKey, sortDirection] = sortValue.split("-");
     filtered.sort((a, b) => {
@@ -190,7 +202,37 @@ function App() {
     setSearchQuery("");
     setStatusFilter([]);
     setStockFilter([]);
+    setVendorFilter([]);
   };
+
+  // Checkbox fonksiyonları
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedProducts(filteredProducts.map((p) => p.id));
+    } else {
+      setSelectedProducts([]);
+    }
+  };
+
+  const handleSelectProduct = (productId) => {
+    setSelectedProducts((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const isAllSelected = filteredProducts.length > 0 && 
+    selectedProducts.length === filteredProducts.length;
+  
+  const isSomeSelected = selectedProducts.length > 0 && 
+    selectedProducts.length < filteredProducts.length;
+
+  // Satıcı listesini oluştur
+  const vendors = React.useMemo(() => {
+    const uniqueVendors = [...new Set(products.map((p) => p.vendor))];
+    return uniqueVendors.sort((a, b) => a.localeCompare(b, "tr"));
+  }, [products]);
 
   const filters = [
     {
@@ -229,6 +271,24 @@ function App() {
       ),
       shortcut: true,
     },
+    {
+      key: "vendor",
+      label: "Satıcı",
+      filter: (
+        <ChoiceList
+          title="Satıcı"
+          titleHidden
+          choices={vendors.map((vendor) => ({
+            label: vendor,
+            value: vendor,
+          }))}
+          selected={vendorFilter}
+          onChange={setVendorFilter}
+          allowMultiple
+        />
+      ),
+      shortcut: true,
+    },
   ];
 
   const appliedFilters = [];
@@ -249,8 +309,22 @@ function App() {
     });
   }
 
+  if (vendorFilter.length > 0) {
+    appliedFilters.push({
+      key: "vendor",
+      label: `Satıcı: ${vendorFilter.join(", ")}`,
+      onRemove: () => setVendorFilter([]),
+    });
+  }
+
   // Tablo satırları oluştur
   const rows = filteredProducts.map((product) => [
+    // Checkbox
+    <Checkbox
+      checked={selectedProducts.includes(product.id)}
+      onChange={() => handleSelectProduct(product.id)}
+    />,
+    
     // Ürün adı ve resim
     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
       {product.image ? (
@@ -272,6 +346,9 @@ function App() {
       )}
       <Text as="span" fontWeight="bold">{product.title}</Text>
     </div>,
+    
+    // Satıcı
+    <Text as="span">{product.vendor}</Text>,
     
     // Fiyat
     <Text as="span" fontWeight="bold">${product.price}</Text>,
@@ -305,7 +382,11 @@ function App() {
   return (
     <Page
         title="Ürünlerim"
-        subtitle={`${filteredProducts.length} / ${products.length} ürün gösteriliyor`}
+        subtitle={
+          selectedProducts.length > 0
+            ? `${selectedProducts.length} ürün seçildi • ${filteredProducts.length} / ${products.length} gösteriliyor`
+            : `${filteredProducts.length} / ${products.length} ürün gösteriliyor`
+        }
         primaryAction={{
           content: "Yenile",
           onAction: refreshProducts,
@@ -419,14 +500,43 @@ function App() {
                 </EmptyState>
               </Card>
             ) : (
-              <Card>
-                <DataTable
-                  columnContentTypes={["text", "text", "text", "text", "text"]}
-                  headings={["Ürün", "Fiyat", "Stok", "Durum", "İşlemler"]}
-                  rows={rows}
-                  verticalAlign="middle"
-                />
-              </Card>
+              <BlockStack gap="400">
+                {/* Toplu Seçim */}
+                {filteredProducts.length > 0 && (
+                  <Card>
+                    <div style={{ padding: "1rem" }}>
+                      <InlineStack align="space-between" blockAlign="center">
+                        <Checkbox
+                          label={`Tümünü Seç (${filteredProducts.length})`}
+                          checked={isAllSelected}
+                          indeterminate={isSomeSelected}
+                          onChange={handleSelectAll}
+                        />
+                        {selectedProducts.length > 0 && (
+                          <InlineStack gap="200">
+                            <Text as="span" tone="subdued">
+                              {selectedProducts.length} ürün seçildi
+                            </Text>
+                            <Button size="slim" onClick={() => setSelectedProducts([])}>
+                              Seçimi Temizle
+                            </Button>
+                          </InlineStack>
+                        )}
+                      </InlineStack>
+                    </div>
+                  </Card>
+                )}
+                
+                {/* Ürün Tablosu */}
+                <Card>
+                  <DataTable
+                    columnContentTypes={["text", "text", "text", "text", "text", "text", "text"]}
+                    headings={["", "Ürün", "Satıcı", "Fiyat", "Stok", "Durum", "İşlemler"]}
+                    rows={rows}
+                    verticalAlign="middle"
+                  />
+                </Card>
+              </BlockStack>
             )}
           </Layout.Section>
 

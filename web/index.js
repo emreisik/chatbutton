@@ -109,6 +109,7 @@ async function fetchShopifyProducts(session) {
       inventory: product.variants?.[0]?.inventory_quantity || 0,
       status: product.status,
       image: product.images?.[0]?.src || product.image?.src || null,
+      vendor: product.vendor || "Belirsiz",
     }));
 
     console.log(`✅ Fetched ${products.length} products from Shopify`);
