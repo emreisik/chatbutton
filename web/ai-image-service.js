@@ -1,9 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAvwKgDX5Qv0Ah78Qi1xFu7NZtiHMXXyWo";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
 // Cloudinary configuration (optional - for image hosting)
 if (process.env.CLOUDINARY_CLOUD_NAME) {
@@ -52,9 +56,13 @@ export const PROMPT_TEMPLATES = {
 };
 
 /**
- * Gemini 2.0 ile Görsel Üret (Imagen 3)
+ * OpenAI DALL-E 3 ile Görsel Üret
  */
-export async function generateProductImage(productName, templateKey = "ecommerce_white") {
+export async function generateWithDALLE3(productName, templateKey = "ecommerce_white", options = {}) {
+  if (!openai) {
+    throw new Error("OpenAI API key not configured. Add OPENAI_API_KEY to environment variables.");
+  }
+
   try {
     const template = PROMPT_TEMPLATES[templateKey];
     if (!template) {
@@ -62,7 +70,63 @@ export async function generateProductImage(productName, templateKey = "ecommerce
     }
 
     const prompt = template.prompt(productName);
-    console.log(`🎨 Generating image for: ${productName}`);
+    console.log(`🎨 Generating image with DALL-E 3 for: ${productName}`);
+    console.log(`📝 Prompt: ${prompt}`);
+
+    const { quality = "standard", size = "1024x1024" } = options;
+
+    // Generate image with DALL-E 3
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: size,
+      quality: quality,
+      response_format: "url", // or "b64_json"
+    });
+
+    const imageUrl = response.data[0].url;
+    const revisedPrompt = response.data[0].revised_prompt;
+
+    console.log(`✅ Image generated successfully with DALL-E 3!`);
+    console.log(`🔗 Image URL: ${imageUrl}`);
+
+    return {
+      success: true,
+      imageGenerated: true,
+      imageUrl: imageUrl,
+      prompt: revisedPrompt || prompt,
+      originalPrompt: prompt,
+      templateUsed: template.name,
+      model: "dall-e-3",
+      quality: quality,
+      size: size,
+    };
+
+  } catch (error) {
+    console.error("❌ DALL-E 3 Generation Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Gemini 2.0 ile Görsel Üret (Imagen 3)
+ */
+export async function generateProductImage(productName, templateKey = "ecommerce_white", modelType = "openai", options = {}) {
+  // Use OpenAI DALL-E 3 if specified and configured
+  if (modelType === "openai" && openai) {
+    return await generateWithDALLE3(productName, templateKey, options);
+  }
+
+  // Use Gemini if OpenAI not available or specified
+  try {
+    const template = PROMPT_TEMPLATES[templateKey];
+    if (!template) {
+      throw new Error(`Template not found: ${templateKey}`);
+    }
+
+    const prompt = template.prompt(productName);
+    console.log(`🎨 Generating image with Gemini for: ${productName}`);
     console.log(`📝 Prompt: ${prompt}`);
 
     // Try Gemini 2.0 Flash (with image generation)
@@ -211,5 +275,7 @@ export async function uploadBase64ToCloudinary(base64Data, fileName = "ai-produc
   }
 }
 
-console.log("🎨 AI Image Service initialized with Gemini API");
+console.log("🎨 AI Image Service initialized");
+console.log(`🤖 Gemini API: ${GEMINI_API_KEY ? 'Configured' : 'Not configured'}`);
+console.log(`🎨 OpenAI API: ${OPENAI_API_KEY ? 'Configured' : 'Not configured'}`);
 console.log(`📋 Available templates: ${Object.keys(PROMPT_TEMPLATES).join(", ")}`);

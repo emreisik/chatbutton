@@ -66,6 +66,9 @@ function App() {
   const [aiModalActive, setAiModalActive] = React.useState(false);
   const [aiTemplates, setAiTemplates] = React.useState([]);
   const [selectedTemplate, setSelectedTemplate] = React.useState("ecommerce_white");
+  const [selectedModel, setSelectedModel] = React.useState("openai");
+  const [selectedQuality, setSelectedQuality] = React.useState("standard");
+  const [selectedSize, setSelectedSize] = React.useState("1024x1024");
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
@@ -316,6 +319,9 @@ function App() {
             productId: product.id,
             productName: product.title,
             templateKey: selectedTemplate,
+            modelType: selectedModel,
+            quality: selectedQuality,
+            size: selectedSize,
             uploadToShopify: uploadToShopify,
           }),
         });
@@ -799,6 +805,26 @@ function App() {
                 </div>
               </Card>
 
+              {/* AI Model Seçimi */}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm" fontWeight="semibold">
+                      AI Modeli
+                    </Text>
+                    <Select
+                      label="Model"
+                      options={[
+                        { label: "🎨 OpenAI DALL-E 3 (Önerilen)", value: "openai" },
+                        { label: "🤖 Google Gemini 2.0", value: "gemini" },
+                      ]}
+                      value={selectedModel}
+                      onChange={setSelectedModel}
+                    />
+                  </BlockStack>
+                </div>
+              </Card>
+
               {/* Prompt Şablonu Seçimi */}
               <Card>
                 <div style={{ padding: "1rem" }}>
@@ -815,15 +841,50 @@ function App() {
                       value={selectedTemplate}
                       onChange={setSelectedTemplate}
                     />
-                    <Text as="p" tone="subdued" variant="bodyS">
-                      Seçilen stil ile tüm ürünler için AI fotoğraflar oluşturulacak.
-                    </Text>
-                    <Checkbox
-                      label="Oluşturulan görselleri otomatik olarak Shopify'a yükle"
-                      checked={uploadToShopify}
-                      onChange={setUploadToShopify}
-                    />
                   </BlockStack>
+                </div>
+              </Card>
+
+              {/* DALL-E 3 Options */}
+              {selectedModel === "openai" && (
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        DALL-E 3 Ayarları
+                      </Text>
+                      <Select
+                        label="Kalite"
+                        options={[
+                          { label: "Standard (Hızlı)", value: "standard" },
+                          { label: "HD (Yüksek Kalite)", value: "hd" },
+                        ]}
+                        value={selectedQuality}
+                        onChange={setSelectedQuality}
+                      />
+                      <Select
+                        label="Boyut"
+                        options={[
+                          { label: "1024x1024 (Kare)", value: "1024x1024" },
+                          { label: "1792x1024 (Yatay)", value: "1792x1024" },
+                          { label: "1024x1792 (Dikey)", value: "1024x1792" },
+                        ]}
+                        value={selectedSize}
+                        onChange={setSelectedSize}
+                      />
+                    </BlockStack>
+                  </div>
+                </Card>
+              )}
+
+              {/* Upload Option */}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <Checkbox
+                    label="Oluşturulan görselleri otomatik olarak Shopify'a yükle"
+                    checked={uploadToShopify}
+                    onChange={setUploadToShopify}
+                  />
                 </div>
               </Card>
 
@@ -911,13 +972,16 @@ function App() {
                       {generationResults.some(r => r.imageGenerated) ? (
                         <Banner status="success">
                           <Text as="p" variant="bodyS">
-                            ✨ Gemini 2.0 ile görsel üretimi başarılı! Cloudinary yapılandırması ile görseller otomatik olarak saklanır ve Shopify'a yüklenebilir.
+                            ✨ {selectedModel === "openai" ? "DALL-E 3" : "Gemini 2.0"} ile görsel üretimi başarılı! 
+                            {uploadToShopify && " Görseller otomatik olarak Shopify'a yüklendi."}
                           </Text>
                         </Banner>
                       ) : (
                         <Banner status="info">
                           <Text as="p" variant="bodyS">
-                            Bu prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanarak gerçek görseller oluşturabilirsiniz.
+                            {selectedModel === "openai" 
+                              ? "DALL-E 3 ile profesyonel ürün görselleri oluşturulacak."
+                              : "Gemini 2.0 ile AI destekli görsel üretimi yapılacak."}
                           </Text>
                         </Banner>
                       )}

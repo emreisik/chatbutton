@@ -268,7 +268,7 @@ app.get("/api/ai/templates", (req, res) => {
  */
 app.post("/api/products/generate-image", async (req, res) => {
   try {
-    const { productId, productName, templateKey, uploadToShopify } = req.body;
+    const { productId, productName, templateKey, uploadToShopify, modelType, quality, size } = req.body;
 
     if (!productId || !productName) {
       return res.status(400).json({ 
@@ -284,8 +284,16 @@ app.post("/api/products/generate-image", async (req, res) => {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    // Generate image with Gemini 2.0
-    const result = await generateProductImage(productName, templateKey || "ecommerce_white");
+    // Generate image with selected AI model
+    const result = await generateProductImage(
+      productName, 
+      templateKey || "ecommerce_white",
+      modelType || "openai",
+      {
+        quality: quality || "standard",
+        size: size || "1024x1024",
+      }
+    );
 
     // If image was generated (base64 data exists)
     if (result.imageData) {
