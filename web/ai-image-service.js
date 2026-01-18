@@ -21,49 +21,49 @@ export const LEONARDO_MODELS = {
     id: "aa77f04e-3eec-4034-9c07-d0f619684628",
     name: "GPT Image-1.5",
     description: "Superior editing control, image integrity and detail preservation",
-    baseCredits: 8,
-    features: ["Image Ref", "High quality"],
+    baseCredits: 9, // With Alchemy
+    features: ["Image Ref", "Alchemy", "High quality"],
   },
   "seedream-4.5": {
     id: "7545e862-b5e5-434a-8c9e-2a38e436239a",
     name: "Seedream 4.5",
     description: "Best for posters, logos, and text-heavy designs",
-    baseCredits: 7,
-    features: ["Image Ref", "Text rendering"],
+    baseCredits: 9, // With Alchemy
+    features: ["Image Ref", "Alchemy", "Text rendering"],
   },
   "seedream-4.0": {
     id: "436e5b85-8a25-4f88-a923-2dcb04039aef",
     name: "Seedream 4.0",
     description: "Ultra-high quality for consistent image generations and editing",
-    baseCredits: 7,
-    features: ["Image Ref", "Consistency"],
+    baseCredits: 9, // With Alchemy
+    features: ["Image Ref", "Alchemy", "Consistency"],
   },
   "nano-banana": {
     id: "b24e16ff-06e3-43eb-8d33-4416c2d75876",
     name: "Nano Banana",
     description: "Smart, context-aware edits and consistent, high-quality visuals",
-    baseCredits: 6,
-    features: ["Image Ref", "Fast"],
+    baseCredits: 9, // With Alchemy
+    features: ["Image Ref", "Alchemy", "Fast"],
   },
   "lucid-origin": {
     id: "1aa0f478-51be-4efd-94e8-76bfc8f533af",
     name: "Lucid Origin",
     description: "Excellent color adherence and text rendering for HD output",
-    baseCredits: 5,
-    features: ["Style Ref", "Content Ref", "HD"],
+    baseCredits: 9, // With Alchemy
+    features: ["Style Ref", "Content Ref", "Alchemy", "HD"],
   },
   "lucid-realism": {
     id: "5c232a9e-9061-4777-980a-ddc8e65647c6",
     name: "Lucid Realism",
     description: "Best for pairing with video generation, creating cinematic shots",
-    baseCredits: 5,
-    features: ["Style Ref", "Content Ref", "Cinematic"],
+    baseCredits: 9, // With Alchemy
+    features: ["Style Ref", "Content Ref", "Alchemy", "Cinematic"],
   },
   "flux2-pro": {
     id: "ce5d3d5f-456f-43f0-b5b1-8a9c9c9c9c9c",
     name: "FLUX.2 Pro",
     description: "Advanced prompt adherence with high-fidelity results",
-    baseCredits: 10,
+    baseCredits: 10, // Premium, no Alchemy needed
     features: ["Image Guidance", "Premium"],
   },
 };
@@ -80,35 +80,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
   console.log("☁️ Cloudinary configured for image storage");
 }
 
-/**
- * Model Tipleri (Tutarlılık için)
- */
-export const MODEL_TYPES = {
-  caucasian: {
-    name: "Beyaz Ten - Avrupa",
-    description: "25 year old Caucasian female model with fair skin, light brown wavy hair, hazel eyes, defined cheekbones, natural makeup, elegant and sophisticated look, professional model appearance",
-  },
-  asian: {
-    name: "Asya",
-    description: "25 year old East Asian female model with smooth porcelain skin, straight black hair, almond-shaped dark eyes, delicate features, natural makeup, graceful and elegant appearance, professional model",
-  },
-  african: {
-    name: "Afrika",
-    description: "25 year old African female model with beautiful dark skin, natural curly black hair, expressive dark eyes, high cheekbones, radiant smile, confident pose, professional model appearance",
-  },
-  latin: {
-    name: "Latin",
-    description: "25 year old Latina female model with warm olive skin, long dark brown hair, deep brown eyes, striking features, natural makeup, vibrant and confident look, professional model",
-  },
-  middle_eastern: {
-    name: "Orta Doğu",
-    description: "25 year old Middle Eastern female model with olive skin, long dark hair, deep brown eyes, elegant features, subtle makeup, sophisticated and graceful appearance, professional model",
-  },
-  mixed: {
-    name: "Karma",
-    description: "25 year old mixed-race female model with warm beige skin, wavy brown hair, expressive eyes, unique features, natural makeup, modern and versatile look, professional model appearance",
-  },
-};
+// MODEL_TYPES removed - users now provide custom prompts directly
 
 /**
  * E-ticaret Prompt Şablonları
@@ -458,11 +430,15 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       guidance_scale: 7,
     };
 
-    // Only add photoReal for models that support it
+    // Only add photoReal and alchemy for models that support it
     if (selectedModel.features.includes("PhotoReal")) {
+      requestBody.alchemy = true; // REQUIRED for photoReal!
       requestBody.photoReal = true;
       requestBody.photoRealVersion = "v2";
-      console.log(`✨ PhotoReal enabled (v2)`);
+      console.log(`✨ Alchemy + PhotoReal enabled (v2)`);
+    } else if (selectedModel.features.includes("Alchemy")) {
+      requestBody.alchemy = true;
+      console.log(`✨ Alchemy enabled`);
     }
 
     console.log(`📤 Sending request to Leonardo AI...`);
