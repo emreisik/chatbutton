@@ -65,9 +65,11 @@ function App() {
   // AI Modal state'leri
   const [aiModalActive, setAiModalActive] = React.useState(false);
   const [aiTemplates, setAiTemplates] = React.useState([]);
-  const [selectedTemplate, setSelectedTemplate] = React.useState("ecommerce_white");
+  const [modelTypes, setModelTypes] = React.useState([]); // Yeni: Model tipleri
+  const [selectedTemplate, setSelectedTemplate] = React.useState("female_model"); // Default: Kadın model
   const [selectedModel, setSelectedModel] = React.useState("openai");
-  const [selectedQuality, setSelectedQuality] = React.useState("standard");
+  const [selectedModelPersona, setSelectedModelPersona] = React.useState("caucasian"); // Yeni: Aynı kadın için
+  const [selectedQuality, setSelectedQuality] = React.useState("hd"); // Default: HD
   const [selectedSize, setSelectedSize] = React.useState("1024x1024");
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
@@ -86,6 +88,7 @@ function App() {
   React.useEffect(() => {
     loadProducts();
     loadAITemplates();
+    loadModelTypes();
   }, []);
 
   // Load AI templates
@@ -97,6 +100,18 @@ function App() {
       console.log("✅ AI Templates loaded:", data.templates);
     } catch (error) {
       console.error("❌ Failed to load AI templates:", error);
+    }
+  };
+
+  // Load Model Types (for consistent female model)
+  const loadModelTypes = async () => {
+    try {
+      const response = await fetch("/api/ai/model-types");
+      const data = await response.json();
+      setModelTypes(data.modelTypes || []);
+      console.log("✅ Model Types loaded:", data.modelTypes);
+    } catch (error) {
+      console.error("❌ Failed to load model types:", error);
     }
   };
 
@@ -302,55 +317,91 @@ function App() {
     const headers = { "Content-Type": "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    const totalProducts = selectedProductDetails.length;
     const results = [];
+    let totalImagesProcessed = 0;
+    let totalImagesToProcess = 0;
 
-    for (let i = 0; i < totalProducts; i++) {
-      const product = selectedProductDetails[i];
-      
+    // Step 1: Fetch product details to get ALL images
+    console.log(`🔍 Fetching details for ${selectedProductDetails.length} products...`);
+    const productsWithImages = [];
+    
+    for (const product of selectedProductDetails) {
       try {
-        console.log(`🎨 Generating image ${i + 1}/${totalProducts} for: ${product.title}`);
-        
-        const response = await fetch("/api/products/generate-image", {
-          method: "POST",
+        const detailResponse = await fetch(`/api/products/${product.id}`, {
           headers: headers,
           credentials: "include",
-          body: JSON.stringify({
+        });
+        const productDetail = await detailResponse.json();
+        
+        if (productDetail.images && productDetail.images.length > 0) {
+          productsWithImages.push({
+            ...product,
+            allImages: productDetail.images,
+          });
+          totalImagesToProcess += productDetail.images.length;
+          console.log(`📸 ${product.title}: ${productDetail.images.length} görsel bulundu`);
+        }
+      } catch (error) {
+        console.error(`❌ Error fetching product details for ${product.title}:`, error);
+      }
+    }
+
+    console.log(`📊 Total images to process: ${totalImagesToProcess}`);
+
+    // Step 2: Generate new images for ALL existing images
+    for (const product of productsWithImages) {
+      for (const image of product.allImages) {
+        try {
+          console.log(`🎨 [${totalImagesProcessed + 1}/${totalImagesToProcess}] ${product.title} - Image ${image.id}`);
+          
+          const response = await fetch("/api/products/generate-image", {
+            method: "POST",
+            headers: headers,
+            credentials: "include",
+            body: JSON.stringify({
+              productId: product.id,
+              productName: product.title,
+              currentImageUrl: image.url, // Each existing image
+              templateKey: selectedTemplate,
+              modelType: selectedModel,
+              modelPersona: selectedModelPersona, // CRITICAL: Same model for all images
+              quality: selectedQuality,
+              size: selectedSize,
+              uploadToShopify: uploadToShopify,
+            }),
+          });
+
+          const data = await response.json();
+          
+          results.push({
             productId: product.id,
             productName: product.title,
-            currentImageUrl: product.image, // Send existing image for AI analysis
-            templateKey: selectedTemplate,
-            modelType: selectedModel,
-            quality: selectedQuality,
-            size: selectedSize,
-            uploadToShopify: uploadToShopify,
-          }),
-        });
+            imageId: image.id,
+            originalImageUrl: image.url,
+            success: data.success,
+            imageGenerated: data.imageGenerated || false,
+            newImageUrl: data.imageUrl || null,
+            prompt: data.prompt,
+            templateUsed: data.templateUsed,
+            uploadedToShopify: data.shopifyImageId ? true : false,
+            modelPersona: selectedModelPersona,
+          });
 
-        const data = await response.json();
-        
-        results.push({
-          productId: product.id,
-          productName: product.title,
-          success: data.success,
-          imageGenerated: data.imageGenerated || false,
-          imageUrl: data.imageUrl || null,
-          prompt: data.prompt,
-          templateUsed: data.templateUsed,
-          uploadedToShopify: data.shopifyImageId ? true : false,
-        });
+          totalImagesProcessed++;
+          setGenerationProgress((totalImagesProcessed / totalImagesToProcess) * 100);
+          setGenerationResults([...results]);
 
-        setGenerationProgress(((i + 1) / totalProducts) * 100);
-        setGenerationResults([...results]);
-
-      } catch (error) {
-        console.error(`❌ Error generating image for ${product.title}:`, error);
-        results.push({
-          productId: product.id,
-          productName: product.title,
-          success: false,
-          error: error.message,
-        });
+        } catch (error) {
+          console.error(`❌ Error for ${product.title}:`, error);
+          results.push({
+            productId: product.id,
+            productName: product.title,
+            imageId: image.id,
+            success: false,
+            error: error.message,
+          });
+          totalImagesProcessed++;
+        }
       }
     }
 
@@ -362,18 +413,31 @@ function App() {
     if (imagesGenerated > 0) {
       setBanner({
         status: "success",
-        title: `${imagesGenerated} görsel oluşturuldu!`,
+        title: `${imagesGenerated} görsel oluşturuldu! (${selectedProductDetails.length} ürün)`,
         content: uploadedToShopify > 0 
-          ? `${uploadedToShopify} görsel Shopify'a yüklendi!` 
-          : "Görseller oluşturuldu. Cloudinary yapılandırması ile otomatik yükleme yapabilirsiniz.",
+          ? `${uploadedToShopify} görsel Shopify'a yüklendi! Tüm görsellerde aynı model (${MODEL_TYPES_MAP[selectedModelPersona]}) kullanıldı.` 
+          : "Görseller oluşturuldu. Tüm görsellerde aynı model kullanıldı.",
       });
+      
+      // Reload products to see new images
+      await loadProducts();
     } else {
       setBanner({
-        status: "success",
-        title: `${results.filter(r => r.success).length} ürün için AI prompt oluşturuldu!`,
-        content: "Prompt'ları DALL-E 3, Midjourney veya Stable Diffusion ile kullanabilirsiniz.",
+        status: "warning",
+        title: "Görsel oluşturulamadı",
+        content: "Lütfen API anahtarlarınızı ve ayarlarınızı kontrol edin.",
       });
     }
+  };
+
+  // Model types map for display
+  const MODEL_TYPES_MAP = {
+    caucasian: "Beyaz Ten - Avrupa",
+    asian: "Asya",
+    african: "Afrika",
+    latin: "Latin",
+    middle_eastern: "Orta Doğu",
+    mixed: "Karma",
   };
 
   const filters = [
@@ -846,6 +910,31 @@ function App() {
                 </div>
               </Card>
 
+              {/* Model Persona - Tutarlı Kadın Modeli */}
+              {(selectedTemplate === "female_model" || selectedTemplate === "luxury_fashion") && (
+                <Card>
+                  <div style={{ padding: "1rem" }}>
+                    <BlockStack gap="300">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        👤 Model Tipi (Tüm Görsellerde Aynı)
+                      </Text>
+                      <Text as="p" tone="subdued">
+                        Seçtiğiniz model tipi tüm görsellerde kullanılacak. Böylece tutarlı bir görünüm elde edilir.
+                      </Text>
+                      <Select
+                        label="Model"
+                        options={modelTypes.map((t) => ({
+                          label: t.name,
+                          value: t.id,
+                        }))}
+                        value={selectedModelPersona}
+                        onChange={setSelectedModelPersona}
+                      />
+                    </BlockStack>
+                  </div>
+                </Card>
+              )}
+
               {/* DALL-E 3 Options */}
               {selectedModel === "openai" && (
                 <Card>
@@ -909,9 +998,9 @@ function App() {
                       <Text as="h3" variant="headingSm" fontWeight="semibold">
                         Sonuçlar
                       </Text>
-                      {generationResults.map((result) => (
+                      {generationResults.map((result, index) => (
                         <div
-                          key={result.productId}
+                          key={`${result.productId}-${result.imageId || index}`}
                           style={{
                             padding: "0.75rem",
                             background: result.success ? "#f1f8f4" : "#fef1f1",
@@ -921,24 +1010,49 @@ function App() {
                           <BlockStack gap="200">
                             <Text as="p" fontWeight="semibold">
                               {result.success ? "✅" : "❌"} {result.productName}
+                              {result.modelPersona && ` (${MODEL_TYPES_MAP[result.modelPersona]})`}
                             </Text>
                             
-                            {/* Image Preview */}
-                            {result.imageUrl && (
+                            {/* Before/After Image Preview */}
+                            {(result.originalImageUrl || result.newImageUrl) && (
                               <div style={{ marginTop: "0.5rem" }}>
-                                <img 
-                                  src={result.imageUrl} 
-                                  alt={result.productName}
-                                  style={{ 
-                                    width: "100%", 
-                                    maxWidth: "300px",
-                                    borderRadius: "8px",
-                                    border: "1px solid #e0e0e0",
-                                  }}
-                                />
+                                <InlineStack gap="300" wrap={false}>
+                                  {result.originalImageUrl && (
+                                    <div style={{ flex: 1 }}>
+                                      <Text as="p" variant="bodySm" tone="subdued">Eski:</Text>
+                                      <img 
+                                        src={result.originalImageUrl} 
+                                        alt="Eski"
+                                        style={{ 
+                                          width: "100%", 
+                                          maxWidth: "200px",
+                                          borderRadius: "8px",
+                                          border: "1px solid #e0e0e0",
+                                          marginTop: "4px",
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {result.newImageUrl && (
+                                    <div style={{ flex: 1 }}>
+                                      <Text as="p" variant="bodySm" tone="success">Yeni:</Text>
+                                      <img 
+                                        src={result.newImageUrl} 
+                                        alt="Yeni"
+                                        style={{ 
+                                          width: "100%", 
+                                          maxWidth: "200px",
+                                          borderRadius: "8px",
+                                          border: "2px solid #008060",
+                                          marginTop: "4px",
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </InlineStack>
                                 {result.uploadedToShopify && (
                                   <Badge status="success" style={{ marginTop: "0.5rem" }}>
-                                    Shopify'a Yüklendi
+                                    ✓ Shopify'a Yüklendi
                                   </Badge>
                                 )}
                               </div>
