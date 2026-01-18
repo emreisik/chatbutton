@@ -63,15 +63,51 @@ export const PROMPT_TEMPLATES = {
     prompt: (productName, productAnalysis, modelType = "caucasian") => {
       const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
       
-      return `Professional fashion photography: ${modelDesc} is wearing/modeling ${productName}. 
+      if (!productAnalysis) {
+        // Fallback for no existing image
+        return `Professional fashion photography: ${modelDesc} wearing ${productName}. Natural skin texture, photorealistic, professional studio look, 8K resolution.`;
+      }
+      
+      return `TASK: Replace the woman with a different female model - ${modelDesc}
 
-IMPORTANT: Show the model's face clearly and prominently in the frame. The face should be visible, well-lit, and in focus. Model should be looking at camera with a natural, friendly expression.
+CRITICAL INSTRUCTIONS:
+✓ Keep the EXACT SAME outfit (all clothing items, colors, fit, style)
+✓ Keep the EXACT SAME pose (body position, arms, hands, legs, stance)
+✓ Keep the EXACT SAME body shape and proportions
+✓ Keep the EXACT SAME studio lighting setup
+✓ Keep the EXACT SAME background
+✓ Keep the EXACT SAME camera framing and angle
+✓ ONLY CHANGE: The woman's face and hair
 
-${productAnalysis ? `\nPRODUCT DETAILS:\n${productAnalysis}\n` : ''}
+NEW MODEL MUST HAVE:
+- ${modelDesc}
+- Realistic, natural skin texture
+- Professional fashion model appearance
+- Face resembling the original model's style and attractiveness
+- Natural, confident expression
+- Well-groomed, professional hair styling
 
-Photography style: Professional fashion editorial, clean background or lifestyle setting, natural lighting, elegant pose, high-end magazine quality, photorealistic, sharp focus on both face and product, 8K resolution.
+REFERENCE IMAGE DETAILS TO PRESERVE EXACTLY:
+${productAnalysis}
 
-CRITICAL: The model's face must be clearly visible and should be a focal point of the image. Show face, expression, and maintain consistent model appearance throughout all images.`;
+PHOTOGRAPHY SPECIFICATIONS:
+- Maintain identical professional studio lighting
+- Same depth of field and focus
+- Same color grading and tone
+- High-end fashion editorial quality
+- Photorealistic, 8K resolution
+- Natural, professional look
+
+NEGATIVE PROMPT (AVOID THESE):
+❌ Different clothes, altered outfit, changed colors
+❌ Different pose, altered body position
+❌ Different body shape or proportions
+❌ Changed background or setting
+❌ Different lighting or shadows
+❌ Different camera angle or framing
+❌ Distorted hands, extra limbs
+❌ Unnatural skin texture
+❌ Amateur or unprofessional look`;
     },
   },
   lifestyle: {
@@ -94,21 +130,58 @@ CRITICAL: The model's face must be clearly visible and should be a focal point o
     prompt: (productName, productAnalysis, modelType = "caucasian") => {
       const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
       
-      return `High-end luxury fashion editorial: ${modelDesc} wearing ${productName}.
+      if (!productAnalysis) {
+        // Fallback for no existing image
+        return `High-end luxury fashion editorial: ${modelDesc} wearing ${productName}. Dramatic lighting, vogue magazine aesthetic, photorealistic, 8K resolution.`;
+      }
+      
+      return `TASK: Replace the woman with a different luxury fashion model - ${modelDesc}
 
-IMPORTANT: Model's face must be clearly visible, well-lit, and in sharp focus. Show facial features, expression, and emotion.
+CRITICAL INSTRUCTIONS:
+✓ Keep the EXACT SAME luxury outfit (all garments, accessories, colors, fit)
+✓ Keep the EXACT SAME sophisticated pose and body language
+✓ Keep the EXACT SAME body shape and proportions
+✓ Keep the EXACT SAME dramatic studio lighting
+✓ Keep the EXACT SAME glamorous background/setting
+✓ Keep the EXACT SAME camera framing and composition
+✓ ONLY CHANGE: The model's face and hair
 
-${productAnalysis ? `\nPRODUCT DETAILS:\n${productAnalysis}\n` : ''}
+NEW MODEL MUST HAVE:
+- ${modelDesc}
+- High-end fashion model features
+- Realistic, flawless skin texture
+- Sophisticated, editorial expression
+- Professional makeup and hair styling
+- Face resembling original model's elegance
+- Confident, powerful presence
 
-Setting: Glamorous studio or luxury environment, dramatic professional lighting, vogue magazine aesthetic, sophisticated pose, editorial style, ultra-premium quality, photorealistic, 8K resolution.
+REFERENCE IMAGE DETAILS TO PRESERVE EXACTLY:
+${productAnalysis}
 
-CRITICAL: Maintain consistent model appearance and ensure face is a prominent element of the composition.`;
+PHOTOGRAPHY SPECIFICATIONS:
+- Maintain identical dramatic lighting setup
+- Same luxury editorial aesthetic
+- Same color grading and mood
+- Vogue magazine quality
+- Photorealistic, ultra-premium, 8K resolution
+- Professional fashion editorial look
+
+NEGATIVE PROMPT (AVOID THESE):
+❌ Different outfit, altered clothing, changed accessories
+❌ Different pose, altered body position or stance
+❌ Different body proportions
+❌ Changed background, different setting
+❌ Different lighting setup or shadows
+❌ Different camera angle or composition
+❌ Distorted features, extra limbs
+❌ Unnatural or amateur appearance`;
     },
   },
 };
 
 /**
  * Mevcut Ürün Görselini GPT-4 Vision ile Analiz Et
+ * (Kıyafet, poz, arka plan, ışıklandırma detaylarıyla)
  */
 export async function analyzeProductImage(imageUrl, productName) {
   if (!openai) {
@@ -127,17 +200,41 @@ export async function analyzeProductImage(imageUrl, productName) {
           content: [
             {
               type: "text",
-              text: `Analyze this product image in detail. Describe:
-1. Product type (clothing, accessory, etc.)
-2. Color(s) - be very specific
-3. Style and design details
-4. Material/texture appearance
-5. Any patterns or decorations
-6. Key features that make it unique
+              text: `Analyze this fashion/product photo in EXTREME detail. This analysis will be used to recreate the EXACT same photo with only the model's face changed.
 
-Product name for reference: ${productName}
+Describe with precision:
 
-Provide a detailed, objective description that can be used to recreate this product in a new photo setting.`,
+1. OUTFIT DETAILS:
+   - Exact clothing items worn (type, fit, style)
+   - Colors (be very specific - shades, tones)
+   - Fabric/material appearance and texture
+   - Any patterns, prints, or decorations
+   - How the clothing fits and drapes on the body
+   - All accessories (jewelry, bags, shoes, etc.)
+
+2. MODEL POSE & BODY:
+   - Exact body position and stance
+   - Arm positions, hand placement
+   - Leg position, feet placement
+   - Body angles and orientation
+   - Gaze direction and head tilt
+   - Overall body posture and weight distribution
+
+3. STUDIO SETUP:
+   - Background type and color
+   - Lighting setup (direction, quality, shadows)
+   - Camera angle and framing
+   - Distance from camera (full body, 3/4, etc.)
+   - Any props or set elements
+
+4. OVERALL ATMOSPHERE:
+   - Professional fashion shoot style
+   - Mood and vibe of the image
+   - Technical quality (sharp focus, depth of field)
+
+Product name: ${productName}
+
+BE EXTREMELY SPECIFIC - this description must allow perfect recreation of everything EXCEPT the model's face and hair.`,
             },
             {
               type: "image_url",
@@ -148,12 +245,12 @@ Provide a detailed, objective description that can be used to recreate this prod
           ],
         },
       ],
-      max_tokens: 500,
+      max_tokens: 800,
     });
 
     const analysis = response.choices[0].message.content;
     console.log(`✅ Product analyzed successfully!`);
-    console.log(`📝 Analysis: ${analysis.substring(0, 200)}...`);
+    console.log(`📝 Analysis: ${analysis.substring(0, 300)}...`);
 
     return analysis;
 
