@@ -119,9 +119,12 @@ function App() {
       
       setProducts(data.products || []);
       
+      const productCount = data.products?.length || 0;
+      const vendors = [...new Set(data.products?.map(p => p.vendor) || [])].length;
+      
       setBanner({
         status: "success",
-        title: `${data.products?.length || 0} ürün başarıyla yüklendi!`,
+        title: `${productCount} ürün ve ${vendors} satıcı başarıyla yüklendi!`,
       });
       
       console.log("✅ Ürünler yüklendi:", data);
@@ -466,8 +469,13 @@ function App() {
 
             {loading ? (
               <Card>
-                <div style={{ padding: "1rem" }}>
-                  <SkeletonBodyText lines={10} />
+                <div style={{ padding: "2rem", textAlign: "center" }}>
+                  <BlockStack gap="400" align="center">
+                    <SkeletonBodyText lines={10} />
+                    <Text as="p" tone="subdued">
+                      Tüm ürünler yükleniyor... Bu birkaç saniye sürebilir.
+                    </Text>
+                  </BlockStack>
                 </div>
               </Card>
             ) : filteredProducts.length === 0 ? (
@@ -579,6 +587,13 @@ function App() {
                                   <Text as="span" tone="subdued">Stokta Yok:</Text>
                                   <Text as="span" fontWeight="bold">
                                     {filteredProducts.filter((p) => p.inventory === 0).length}
+                                  </Text>
+                                </InlineStack>
+                                
+                                <InlineStack align="space-between">
+                                  <Text as="span" tone="subdued">Satıcı Sayısı:</Text>
+                                  <Text as="span" fontWeight="bold">
+                                    {vendors.length}
                                   </Text>
                                 </InlineStack>
                 </BlockStack>
