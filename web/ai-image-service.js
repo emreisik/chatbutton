@@ -295,7 +295,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     const {
       width = 1024,
       height = 1536, // 2:3 aspect ratio for fashion photography
-      strength = 0.5, // How much to change from original (0.3-0.7 recommended)
+      strength = 0.35, // LOWER = more preservation (0.3-0.4 for exact outfit matching)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
       customNegativePrompt = null, // User's custom negative prompt
@@ -306,18 +306,28 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
-    // Build prompt - use custom if provided, otherwise use default
+    // Build prompt - use custom if provided, otherwise use ULTRA-SPECIFIC default
     // NOTE: Leonardo AI analyzes init image automatically via img2img
-    // No need for GPT-4 Vision analysis!
+    // CRITICAL: Very specific prompt for EXACT outfit preservation
     let prompt;
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      // Default prompt (fallback)
-      prompt = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.`;
-      console.log(`✏️ Using default prompt`);
+      // ULTRA-SPECIFIC Default prompt for PERFECT outfit preservation
+      prompt = `Professional fashion photography: Replace ONLY the model's face and hair with a different female model. CRITICAL REQUIREMENTS - DO NOT CHANGE:
+- EXACT SAME clothing items, colors, patterns, textures, fabric
+- EXACT SAME buttons, zippers, pockets, seams, stitching
+- EXACT SAME clothing fit, draping, wrinkles, folds
+- EXACT SAME body pose, stance, arms, hands, legs, feet position
+- EXACT SAME camera angle, framing, composition
+- EXACT SAME studio lighting, shadows, highlights
+- EXACT SAME background, floor, props, environment
+- EXACT SAME image quality, sharpness, depth of field
+
+ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hair (style, color, length). New model must have professional fashion model appearance, natural skin texture, realistic features, elegant expression. Photorealistic, ultra-detailed, 8K quality, studio-perfect.`;
+      console.log(`✏️ Using default ULTRA-SPECIFIC prompt for outfit preservation`);
     }
 
     // Ensure prompt doesn't exceed Leonardo's 1500 character limit
@@ -327,7 +337,10 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    const negativePrompt = customNegativePrompt || `different clothes, altered outfit, changed colors, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, blurry, low quality, amateur, cartoon, illustration`;
+    // ULTRA-RESTRICTIVE Negative Prompt - List everything that MUST NOT change
+    const negativePrompt = customNegativePrompt || `different clothing, altered outfit, changed colors, different fabric, modified patterns, different textures, changed buttons, altered zippers, different pockets, modified seams, changed clothing fit, altered draping, different wrinkles, modified pose, different body position, changed arms, altered hands, different legs, modified feet, changed stance, different background, altered lighting, changed shadows, modified environment, different floor, altered props, changed camera angle, different framing, modified composition, clothing deformation, fabric distortion, color shift, pattern change, texture alteration, blurry, low quality, amateur, unrealistic, cartoon, illustration, painting, drawing, 3d render, cgi, distorted proportions, extra limbs, missing limbs, deformed hands, bad anatomy`;
+
+    console.log(`🚫 Negative prompt length: ${negativePrompt.length} chars`);
 
     console.log(`🎨 Generating with Leonardo AI (img2img)...`);
     console.log(`📝 Prompt length: ${prompt.length}/${LEONARDO_MAX_PROMPT} chars`);

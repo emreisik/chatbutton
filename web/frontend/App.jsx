@@ -67,11 +67,21 @@ function App() {
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
   const [customPrompt, setCustomPrompt] = React.useState(
-    "replace the woman with a different female model, keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing, only change the face and hair of the woman, realistic fashion model, natural skin texture, professional studio look"
-  ); // Custom prompt
+    `Professional fashion photography: Replace ONLY the model's face and hair with a different female model. CRITICAL REQUIREMENTS - DO NOT CHANGE:
+- EXACT SAME clothing items, colors, patterns, textures, fabric
+- EXACT SAME buttons, zippers, pockets, seams, stitching
+- EXACT SAME clothing fit, draping, wrinkles, folds
+- EXACT SAME body pose, stance, arms, hands, legs, feet position
+- EXACT SAME camera angle, framing, composition
+- EXACT SAME studio lighting, shadows, highlights
+- EXACT SAME background, floor, props, environment
+- EXACT SAME image quality, sharpness, depth of field
+
+ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hair (style, color, length). New model must have professional fashion model appearance, natural skin texture, realistic features, elegant expression. Photorealistic, ultra-detailed, 8K quality, studio-perfect.`
+  ); // Ultra-specific custom prompt for perfect outfit preservation
   const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
-    "different clothes, altered jacket, changed pants, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, unnatural skin texture, amateur or unprofessional look, blurry face, obscured face, cartoon, illustration, painting, drawing, low quality, bad anatomy, deformed, ugly, disfigured"
-  ); // Negative prompt
+    "different clothing, altered outfit, changed colors, different fabric, modified patterns, different textures, changed buttons, altered zippers, different pockets, modified seams, changed clothing fit, altered draping, different wrinkles, modified pose, different body position, changed arms, altered hands, different legs, modified feet, changed stance, different background, altered lighting, changed shadows, modified environment, different floor, altered props, changed camera angle, different framing, modified composition, clothing deformation, fabric distortion, color shift, pattern change, texture alteration, blurry, low quality, amateur, unrealistic, cartoon, illustration, painting, drawing, 3d render, cgi, distorted proportions, extra limbs, missing limbs, deformed hands, bad anatomy"
+  ); // Ultra-restrictive negative prompt
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
