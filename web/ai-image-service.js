@@ -295,7 +295,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     const {
       width = 848, // Leonardo UI tested dimensions (848 × 1264)
       height = 1264, // 2:3 aspect ratio for fashion photography
-      strength = 0.28, // CRITICAL: 0.28 for MAXIMUM garment preservation (DO NOT increase!)
+      strength = 0.22, // ULTRA-LOCK: 0.22 for ZERO garment edits (lower = maximum preservation)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
       customNegativePrompt = null, // User's custom negative prompt
@@ -306,40 +306,31 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
-    // Build prompt - use custom if provided, otherwise use PRODUCTION-TUNED default
+    // Build prompt - use custom if provided, otherwise use ULTRA-MINIMAL "ZERO-EDIT" default
     // NOTE: Leonardo AI analyzes init image automatically via img2img
-    // CRITICAL: init_strength 0.28 + alchemy OFF = maximum garment lock
+    // CRITICAL: init_strength 0.22 + alchemy OFF + minimal prompt = ZERO garment changes
     let prompt;
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      // PRODUCTION-TUNED prompt for ABSOLUTE outfit preservation
-      prompt = `Use the uploaded image as the exact base reference.
+      // ULTRA-MINIMAL "ZERO-EDIT" prompt (product-agnostic, works for ALL garments)
+      prompt = `Image-to-image transformation. Reference mode: LOCKED.
 
-Preserve the outfit with absolute accuracy:
-same black tailored blazer with the same cut, lapel shape, sleeve length and fabric texture,
-same white high-neck crop top with identical fabric tension and transparency,
-same high-waisted white skirt with the exact same sheer fabric, opacity, folds, wrinkles and stretch marks,
-same elastic waistband with the CHEEYA text, identical font, emboss depth, alignment and spacing.
+CRITICAL INSTRUCTION - DO NOT modify:
+- ANY clothing items (preserve EXACT colors, patterns, textures, cuts, fits)
+- ANY garment details (buttons, zippers, logos, text, embellishments, seams, stitches)
+- ANY fabric properties (transparency, opacity, wrinkles, folds, tension, draping)
+- Body pose, stance, hands, arms, legs position
+- Camera angle, framing, composition
+- Lighting, shadows, highlights
+- Background, floor, props
+- Image quality, sharpness
 
-Preserve every single garment detail exactly:
-all seams, stitches, folds, creases, fabric tension, shadows, wrinkles,
-edge lines, fabric thickness, elasticity and translucency must remain unchanged.
-
-Preserve the same body proportions, pose, posture, camera angle, framing and studio lighting.
-Preserve the same white studio background and soft fashion lighting.
-
-Only replace the woman's face and hair.
-The new female model should closely resemble the original woman
-(similar face shape, age, ethnicity, skin tone),
-but clearly be a different real person.
-
-Ultra-realistic fashion model photography.
-Natural skin texture with visible pores, realistic imperfections,
-professional fashion editorial look, no beauty filter.`;
-      console.log(`✏️ Using default PRODUCTION-TUNED prompt (init_strength 0.28, alchemy OFF)`);
+ONLY modify: Replace woman's face and hair with a different female model.
+Keep similar age, ethnicity, skin tone. Natural realistic features, no artificial enhancements.`;
+      console.log(`✏️ Using default ULTRA-MINIMAL "ZERO-EDIT" prompt (init_strength 0.22, alchemy OFF)`);
     }
 
     // Ensure prompt doesn't exceed Leonardo's 1500 character limit
@@ -349,8 +340,8 @@ professional fashion editorial look, no beauty filter.`;
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    // PRODUCTION-TUNED Negative Prompt - optimized for garment lock
-    const negativePrompt = customNegativePrompt || `changed outfit, different clothes, altered blazer, altered crop top, altered skirt, changed waistband, altered CHEEYA text, modified logo, different fabric, different transparency, different wrinkles, different pose, different body shape, different proportions, distorted hands, extra fingers, extra limbs, background change, lighting change, beauty filter, smooth plastic skin, doll face, face deformation, uncanny face, cartoon look, blurry, low quality, amateur, unrealistic, illustration, painting, drawing, 3d render, cgi`;
+    // ULTRA-AGGRESSIVE Negative Prompt - blocks ANY garment modifications
+    const negativePrompt = customNegativePrompt || `any clothing change, any fabric change, any color change, any pattern change, any texture change, modified garment, altered outfit, different cut, different fit, changed buttons, changed zippers, changed text, changed logos, changed embellishments, modified seams, modified stitches, different transparency, different opacity, different wrinkles, different folds, different draping, different pose, different stance, changed hands, changed arms, changed legs, different camera angle, different framing, different composition, different lighting, different shadows, different background, different props, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, deformed, distorted, blurry, low quality`;
 
     console.log(`🚫 Negative prompt length: ${negativePrompt.length} chars`);
 

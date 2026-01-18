@@ -67,33 +67,24 @@ function App() {
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
   const [customPrompt, setCustomPrompt] = React.useState(
-    `Use the uploaded image as the exact base reference.
+    `Image-to-image transformation. Reference mode: LOCKED.
 
-Preserve the outfit with absolute accuracy:
-same black tailored blazer with the same cut, lapel shape, sleeve length and fabric texture,
-same white high-neck crop top with identical fabric tension and transparency,
-same high-waisted white skirt with the exact same sheer fabric, opacity, folds, wrinkles and stretch marks,
-same elastic waistband with the CHEEYA text, identical font, emboss depth, alignment and spacing.
+CRITICAL INSTRUCTION - DO NOT modify:
+- ANY clothing items (preserve EXACT colors, patterns, textures, cuts, fits)
+- ANY garment details (buttons, zippers, logos, text, embellishments, seams, stitches)
+- ANY fabric properties (transparency, opacity, wrinkles, folds, tension, draping)
+- Body pose, stance, hands, arms, legs position
+- Camera angle, framing, composition
+- Lighting, shadows, highlights
+- Background, floor, props
+- Image quality, sharpness
 
-Preserve every single garment detail exactly:
-all seams, stitches, folds, creases, fabric tension, shadows, wrinkles,
-edge lines, fabric thickness, elasticity and translucency must remain unchanged.
-
-Preserve the same body proportions, pose, posture, camera angle, framing and studio lighting.
-Preserve the same white studio background and soft fashion lighting.
-
-Only replace the woman's face and hair.
-The new female model should closely resemble the original woman
-(similar face shape, age, ethnicity, skin tone),
-but clearly be a different real person.
-
-Ultra-realistic fashion model photography.
-Natural skin texture with visible pores, realistic imperfections,
-professional fashion editorial look, no beauty filter.`
-  ); // Production-tuned prompt (init_strength 0.28, alchemy OFF)
+ONLY modify: Replace woman's face and hair with a different female model.
+Keep similar age, ethnicity, skin tone. Natural realistic features, no artificial enhancements.`
+  ); // ULTRA-MINIMAL "ZERO-EDIT" prompt (init_strength 0.22, alchemy OFF)
   const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
-    "changed outfit, different clothes, altered blazer, altered crop top, altered skirt, changed waistband, altered CHEEYA text, modified logo, different fabric, different transparency, different wrinkles, different pose, different body shape, different proportions, distorted hands, extra fingers, extra limbs, background change, lighting change, beauty filter, smooth plastic skin, doll face, face deformation, uncanny face, cartoon look, blurry, low quality, amateur, unrealistic, illustration, painting, drawing, 3d render, cgi"
-  ); // Production-tuned negative prompt
+    "any clothing change, any fabric change, any color change, any pattern change, any texture change, modified garment, altered outfit, different cut, different fit, changed buttons, changed zippers, changed text, changed logos, changed embellishments, modified seams, modified stitches, different transparency, different opacity, different wrinkles, different folds, different draping, different pose, different stance, changed hands, changed arms, changed legs, different camera angle, different framing, different composition, different lighting, different shadows, different background, different props, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, deformed, distorted, blurry, low quality"
+  ); // ULTRA-AGGRESSIVE negative prompt
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
