@@ -1,15 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import OpenAI from "openai";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import FormData from "form-data";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAvwKgDX5Qv0Ah78Qi1xFu7NZtiHMXXyWo";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const LEONARDO_API_KEY = process.env.LEONARDO_API_KEY;
-
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
 // Leonardo AI configuration
 const LEONARDO_API_URL = "https://cloud.leonardo.ai/api/rest/v1";
@@ -248,88 +241,8 @@ NEGATIVE PROMPT (AVOID THESE):
 };
 
 /**
- * Mevcut Ürün Görselini GPT-4 Vision ile Analiz Et
- * (Kıyafet, poz, arka plan, ışıklandırma detaylarıyla)
- */
-export async function analyzeProductImage(imageUrl, productName) {
-  if (!openai) {
-    throw new Error("OpenAI API key not configured.");
-  }
-
-  try {
-    console.log(`🔍 Analyzing existing product image with GPT-4 Vision...`);
-    console.log(`📷 Image URL: ${imageUrl}`);
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Analyze this fashion/product photo in EXTREME detail. This analysis will be used to recreate the EXACT same photo with only the model's face changed.
-
-Describe with precision:
-
-1. OUTFIT DETAILS:
-   - Exact clothing items worn (type, fit, style)
-   - Colors (be very specific - shades, tones)
-   - Fabric/material appearance and texture
-   - Any patterns, prints, or decorations
-   - How the clothing fits and drapes on the body
-   - All accessories (jewelry, bags, shoes, etc.)
-
-2. MODEL POSE & BODY:
-   - Exact body position and stance
-   - Arm positions, hand placement
-   - Leg position, feet placement
-   - Body angles and orientation
-   - Gaze direction and head tilt
-   - Overall body posture and weight distribution
-
-3. STUDIO SETUP:
-   - Background type and color
-   - Lighting setup (direction, quality, shadows)
-   - Camera angle and framing
-   - Distance from camera (full body, 3/4, etc.)
-   - Any props or set elements
-
-4. OVERALL ATMOSPHERE:
-   - Professional fashion shoot style
-   - Mood and vibe of the image
-   - Technical quality (sharp focus, depth of field)
-
-Product name: ${productName}
-
-BE EXTREMELY SPECIFIC - this description must allow perfect recreation of everything EXCEPT the model's face and hair.`,
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageUrl,
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 800,
-    });
-
-    const analysis = response.choices[0].message.content;
-    console.log(`✅ Product analyzed successfully!`);
-    console.log(`📝 Analysis: ${analysis.substring(0, 300)}...`);
-
-    return analysis;
-
-  } catch (error) {
-    console.error("❌ GPT-4 Vision Analysis Error:", error);
-    throw error;
-  }
-}
-
-/**
- * OpenAI DALL-E 3 ile Görsel Üret (Mevcut Görselden)
+ * Leonardo AI handles image analysis automatically via img2img
+ * No need for separate GPT-4 Vision analysis!
  */
 export async function generateWithDALLE3(productName, templateKey = "ecommerce_white", options = {}) {
   if (!openai) {
@@ -600,33 +513,16 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
     // Build prompt - use custom if provided, otherwise use default
+    // NOTE: Leonardo AI analyzes init image automatically via img2img
+    // No need for GPT-4 Vision analysis!
     let prompt;
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
-      // Append product analysis if available (truncate to fit Leonardo 1500 char limit)
-      if (productAnalysis) {
-        // Truncate analysis to fit within Leonardo's 1500 char limit
-        const maxAnalysisLength = 800; // Reserve space for custom prompt
-        const truncatedAnalysis = productAnalysis.length > maxAnalysisLength 
-          ? productAnalysis.substring(0, maxAnalysisLength) + '...' 
-          : productAnalysis;
-        prompt += `\n\nREFERENCE:\n${truncatedAnalysis}`;
-      }
       console.log(`✏️ Using custom prompt from user`);
     } else {
       // Default prompt (fallback)
-      const defaultPromptBase = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.`;
-      
-      if (productAnalysis) {
-        const maxAnalysisLength = 600;
-        const truncatedAnalysis = productAnalysis.length > maxAnalysisLength 
-          ? productAnalysis.substring(0, maxAnalysisLength) + '...' 
-          : productAnalysis;
-        prompt = `${defaultPromptBase}\n\nREFERENCE:\n${truncatedAnalysis}`;
-      } else {
-        prompt = defaultPromptBase;
-      }
+      prompt = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.`;
       console.log(`✏️ Using default prompt`);
     }
 

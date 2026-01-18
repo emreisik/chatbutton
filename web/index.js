@@ -11,9 +11,6 @@ import { setupAuthRoutes } from "./auth-routes.js";
 import { 
   generateProductImage,
   generateWithLeonardo,
-  analyzeProductImage, 
-  PROMPT_TEMPLATES,
-  MODEL_TYPES,
   LEONARDO_MODELS, 
   uploadImageToShopify,
   uploadBase64ToCloudinary,
@@ -259,31 +256,6 @@ app.get("/api/products", async (req, res) => {
 });
 
 /**
- * API Endpoint: Get Available AI Prompt Templates
- */
-app.get("/api/ai/templates", (req, res) => {
-  const templates = Object.entries(PROMPT_TEMPLATES).map(([key, value]) => ({
-    id: key,
-    name: value.name,
-  }));
-  
-  res.json({ templates });
-});
-
-/**
- * API Endpoint: Get Available Model Types (for consistent female model)
- */
-app.get("/api/ai/model-types", (req, res) => {
-  const modelTypes = Object.entries(MODEL_TYPES).map(([key, value]) => ({
-    id: key,
-    name: value.name,
-    description: value.description,
-  }));
-  
-  res.json({ modelTypes });
-});
-
-/**
  * API Endpoint: Get Available Leonardo AI Models
  */
 app.get("/api/ai/leonardo-models", (req, res) => {
@@ -360,22 +332,14 @@ app.post("/api/products/generate-image", async (req, res) => {
     // Process generation in background (don't await)
     (async () => {
       try {
-        console.log(`🔍 [${jobId}] Analyzing image...`);
-        
-        let productAnalysis = null;
-        try {
-          productAnalysis = await analyzeProductImage(currentImageUrl, productName);
-        } catch (error) {
-          console.error(`⚠️ [${jobId}] Analysis failed:`, error.message);
-        }
-
         console.log(`🎨 [${jobId}] Generating with Leonardo AI...`);
         console.log(`📝 [${jobId}] Custom Prompt: ${customPrompt ? 'YES' : 'NO (using default)'}`);
+        console.log(`📸 [${jobId}] Leonardo will analyze init image automatically`);
         
         const result = await generateWithLeonardo(
           currentImageUrl,
           productName,
-          productAnalysis,
+          null, // No GPT-4 Vision analysis - Leonardo handles it
           {
             width: 1024,
             height: 1536,
