@@ -87,7 +87,7 @@ async function getSessionFromRequest(req) {
 }
 
 /**
- * Fetch ALL products from Shopify using pagination
+ * Fetch ALL products from Shopify using GraphQL (supports pagination)
  */
 async function fetchShopifyProducts(session) {
   if (!session || !session.accessToken) {
@@ -96,27 +96,106 @@ async function fetchShopifyProducts(session) {
   }
 
   try {
-    const client = new shopify.clients.Rest({
+    const client = new shopify.clients.Graphql({
       session,
-      apiVersion: shopify.config.apiVersion,
     });
 
-    console.log(`📡 Fetching ALL products for shop: ${session.shop}`);
+    console.log(`📡 Fetching ALL products for shop: ${session.shop} via GraphQL`);
 
     let allProducts = [];
     let hasNextPage = true;
-    let pageInfo = null;
+    let cursor = null;
 
     // Pagination loop - fetch all products
     while (hasNextPage) {
-      const query = { limit: 250 }; // Max limit per request
-      if (pageInfo) {
-        query.page_info = pageInfo;
+      const query = `
+        query getProducts($cursor: String) {
+          products(first: 250, after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            edges {
+              node {
+                id
+                title
+                status
+                vendor
+                featuredImage {
+                  url
+                }
+                variants(first: 1) {
+                  edges {
+                    node {
+                      price
+                      inventoryQuantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const response = await client.query({
+        data: {
+          query,
+          variables: cursor ? { cursor } : {},
+        },
+      });
+
+      const productsData = response.body.data.products;
+      
+      const products = productsData.edges.map(edge => {
+        const product = edge.node;
+        const variant = product.variants.edges[0]?.node;
+        
+        return {
+          id: product.id.split('/').pop(),
+          title: product.title,
+          price: variant?.price || "0.00",
+          inventory: variant?.inventoryQuantity || 0,
+          status: product.status.toLowerCase(),
+          image: product.featuredImage?.url || null,
+          vendor: product.vendor || "Belirsiz",
+        };
+      });
+
+      allProducts = allProducts.concat(products);
+
+      // Check if there are more pages
+      if (productsData.pageInfo.hasNextPage) {
+        cursor = productsData.pageInfo.endCursor;
+        console.log(`📄 Fetching next page... (${allProducts.length} products so far)`);
+      } else {
+        hasNextPage = false;
       }
+
+      // Safety limit to prevent infinite loops
+      if (allProducts.length > 10000) {
+        console.log("⚠️  Safety limit reached: 10,000 products");
+        break;
+      }
+    }
+
+    console.log(`✅ Fetched ${allProducts.length} products from Shopify via GraphQL`);
+    return allProducts;
+
+  } catch (error) {
+    console.error("❌ Error fetching from Shopify GraphQL API:", error.message);
+    
+    // Fallback to simple REST API (without pagination)
+    try {
+      console.log("📡 Falling back to REST API (250 products limit)...");
+      const client = new shopify.clients.Rest({
+        session,
+        apiVersion: shopify.config.apiVersion,
+      });
 
       const response = await client.get({
         path: "products",
-        query: query,
+        query: { limit: 250 },
       });
 
       const products = response.body.products.map(product => ({
@@ -129,36 +208,13 @@ async function fetchShopifyProducts(session) {
         vendor: product.vendor || "Belirsiz",
       }));
 
-      allProducts = allProducts.concat(products);
-
-      // Check if there are more pages
-      const linkHeader = response.headers.get('link');
-      if (linkHeader && linkHeader.includes('rel="next"')) {
-        // Extract page_info from Link header
-        const nextMatch = linkHeader.match(/<[^>]*[?&]page_info=([^&>]+)[^>]*>;\s*rel="next"/);
-        if (nextMatch) {
-          pageInfo = nextMatch[1];
-          console.log(`📄 Fetching next page... (${allProducts.length} products so far)`);
-        } else {
-          hasNextPage = false;
-        }
-      } else {
-        hasNextPage = false;
-      }
-
-      // Safety limit to prevent infinite loops
-      if (allProducts.length > 10000) {
-        console.log("⚠️  Safety limit reached: 10,000 products");
-        break;
-      }
+      console.log(`✅ Fetched ${products.length} products from Shopify REST API (fallback)`);
+      return products;
+      
+    } catch (fallbackError) {
+      console.error("❌ Fallback also failed:", fallbackError.message);
+      return [];
     }
-
-    console.log(`✅ Fetched ${allProducts.length} products from Shopify (all pages)`);
-    return allProducts;
-
-  } catch (error) {
-    console.error("❌ Error fetching from Shopify API:", error.message);
-    return [];
   }
 }
 
