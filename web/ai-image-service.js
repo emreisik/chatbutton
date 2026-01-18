@@ -443,7 +443,7 @@ professional fashion editorial look, no beauty filter.`;
     console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
     
     // Build request body - PRODUCTION-TUNED for absolute garment preservation
-    // These settings match successful manual Leonardo UI test
+    // Only using officially supported Leonardo API parameters
     const requestBody = {
       prompt: prompt,
       negative_prompt: negativePrompt,
@@ -462,14 +462,11 @@ professional fashion editorial look, no beauty filter.`;
       photoReal: false,
       promptMagic: false, // Also disable prompt magic
       
-      // Leonardo UI successful settings (from manual test):
-      promptEnhance: true, // "Prompt Enhance: Auto" in UI
-      presetStyle: "DYNAMIC", // "Style: Dynamic" in UI
-      private: true, // "Private Mode: ON" in UI
+      // NOTE: promptEnhance, presetStyle, private are UI-only settings
+      // They are not supported by Leonardo API and cause "Unexpected variable" errors
     };
 
     console.log(`🔒 GARMENT LOCK MODE: alchemy=false, photoReal=false, strength=0.28`);
-    console.log(`🎨 Leonardo UI Settings: promptEnhance=true, style=DYNAMIC, private=true`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
     
