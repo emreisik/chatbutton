@@ -67,25 +67,29 @@ function App() {
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
   const [customPrompt, setCustomPrompt] = React.useState(
-    `Image-to-image transformation. GARMENT PRESERVATION MODE: ABSOLUTE LOCK.
+    `Image-to-image transformation. DUAL OBJECTIVES:
 
-PRIMARY DIRECTIVE - CLOTHING MUST BE 100% IDENTICAL:
-The clothing, fabric, and all garment details are SACRED and UNTOUCHABLE.
-Preserve EVERY single detail with ZERO modifications:
-- EXACT same colors, patterns, textures, cuts, fits, shapes
-- EXACT same buttons, zippers, logos, text, embellishments, stitching
-- EXACT same fabric properties: transparency, opacity, wrinkles, folds, draping
-- EXACT same garment positioning on body
+OBJECTIVE 1 - ABSOLUTE GARMENT LOCK (HIGHEST PRIORITY):
+The clothing and all garment elements are COMPLETELY LOCKED and UNTOUCHABLE.
+ZERO modifications allowed to ANY garment aspect:
+- Colors, patterns, textures, fabrics (EXACT preservation)
+- Buttons, zippers, logos, text, embellishments (EXACT preservation)
+- Cuts, fits, shapes, draping, wrinkles, folds (EXACT preservation)
+- Seams, stitches, fabric tension, transparency (EXACT preservation)
+- Garment positioning and how clothes sit on body (EXACT preservation)
 
-ALSO preserve unchanged:
-- Body pose, stance, all limb positions
-- Camera angle, framing, composition  
-- Lighting, shadows, highlights
-- Background, floor, all props
-- Image quality, sharpness, focus
+ALSO preserve EXACTLY:
+- Body pose, stance, all hand/arm/leg positions
+- Camera angle, framing, composition
+- Lighting, shadows, highlights, studio setup
+- Background, floor, props
+- Image sharpness, quality
 
-SECONDARY task (less important): You may replace the woman's face/hair if possible while keeping everything else identical.`
-  ); // ABSOLUTE "GARMENT-FIRST" prompt (init_strength 0.18, alchemy OFF)
+OBJECTIVE 2 - FACE REPLACEMENT (SECONDARY):
+Replace the woman's face and hair with a CLEARLY DIFFERENT person.
+New model should have noticeably different facial features.
+Natural realistic appearance, professional fashion model look.`
+  ); // DUAL-PRIORITY prompt (init_strength 0.24: garment lock + face change)
   const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
     "ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, modified buttons, modified zippers, modified text, modified logos, modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY wrinkle change, ANY fold change, ANY draping change, garment deformation, fabric distortion, clothing replacement, outfit substitution, ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, ANY camera angle change, ANY framing change, ANY composition change, ANY lighting change, ANY shadow change, ANY background change, ANY prop change, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, deformed, distorted, blurry, low quality, unrealistic"
   ); // MAXIMUM RESTRICTIVE negative prompt

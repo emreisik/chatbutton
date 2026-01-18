@@ -295,7 +295,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     const {
       width = 848, // Leonardo UI tested dimensions (848 × 1264)
       height = 1264, // 2:3 aspect ratio for fashion photography
-      strength = 0.18, // MAXIMUM GARMENT LOCK: 0.18 (lower = more preservation, face changes less important)
+      strength = 0.24, // OPTIMAL BALANCE: 0.24 (face changes, garment locked)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
       customNegativePrompt = null, // User's custom negative prompt
@@ -315,26 +315,30 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      // ABSOLUTE "GARMENT-FIRST" prompt (clothing preservation is #1 priority)
-      prompt = `Image-to-image transformation. GARMENT PRESERVATION MODE: ABSOLUTE LOCK.
+      // DUAL-PRIORITY prompt: Garment preservation + Face replacement
+      prompt = `Image-to-image transformation. DUAL OBJECTIVES:
 
-PRIMARY DIRECTIVE - CLOTHING MUST BE 100% IDENTICAL:
-The clothing, fabric, and all garment details are SACRED and UNTOUCHABLE.
-Preserve EVERY single detail with ZERO modifications:
-- EXACT same colors, patterns, textures, cuts, fits, shapes
-- EXACT same buttons, zippers, logos, text, embellishments, stitching
-- EXACT same fabric properties: transparency, opacity, wrinkles, folds, draping
-- EXACT same garment positioning on body
+OBJECTIVE 1 - ABSOLUTE GARMENT LOCK (HIGHEST PRIORITY):
+The clothing and all garment elements are COMPLETELY LOCKED and UNTOUCHABLE.
+ZERO modifications allowed to ANY garment aspect:
+- Colors, patterns, textures, fabrics (EXACT preservation)
+- Buttons, zippers, logos, text, embellishments (EXACT preservation)
+- Cuts, fits, shapes, draping, wrinkles, folds (EXACT preservation)
+- Seams, stitches, fabric tension, transparency (EXACT preservation)
+- Garment positioning and how clothes sit on body (EXACT preservation)
 
-ALSO preserve unchanged:
-- Body pose, stance, all limb positions
-- Camera angle, framing, composition  
-- Lighting, shadows, highlights
-- Background, floor, all props
-- Image quality, sharpness, focus
+ALSO preserve EXACTLY:
+- Body pose, stance, all hand/arm/leg positions
+- Camera angle, framing, composition
+- Lighting, shadows, highlights, studio setup
+- Background, floor, props
+- Image sharpness, quality
 
-SECONDARY task (less important): You may replace the woman's face/hair if possible while keeping everything else identical.`;
-      console.log(`✏️ Using ABSOLUTE "GARMENT-FIRST" prompt (init_strength 0.18, alchemy OFF)`);
+OBJECTIVE 2 - FACE REPLACEMENT (SECONDARY):
+Replace the woman's face and hair with a CLEARLY DIFFERENT person.
+New model should have noticeably different facial features.
+Natural realistic appearance, professional fashion model look.`;
+      console.log(`✏️ Using DUAL-PRIORITY prompt (init_strength 0.24: garment lock + face change)`);
     }
 
     // Ensure prompt doesn't exceed Leonardo's 1500 character limit
