@@ -441,8 +441,8 @@ Natural realistic appearance, professional fashion model look.`;
     console.log(`🎨 Step 3/4: Generating new image...`);
     console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
     
-    // Build request body - PRODUCTION-TUNED for absolute garment preservation
-    // Only using officially supported Leonardo API parameters
+    // Build request body - MAXIMUM PRESERVATION with ControlNet
+    // Leonardo API parameters optimized for ZERO garment changes
     const requestBody = {
       prompt: prompt,
       negative_prompt: negativePrompt,
@@ -451,7 +451,7 @@ Natural realistic appearance, professional fashion model look.`;
       height: height,
       num_images: 1,
       init_image_id: imageId,
-      init_strength: strength, // 0.28 = maximum garment lock
+      init_strength: strength, // 0.24 = balance between face change and garment lock
       guidance_scale: 6.5, // Tuned for product-locked generation
       seed: 12345, // Fixed seed for consistency (optional override via options)
       
@@ -459,13 +459,28 @@ Natural realistic appearance, professional fashion model look.`;
       // Alchemy modifies clothing details, causing changes to fabric, wrinkles, colors
       alchemy: false,
       photoReal: false,
-      promptMagic: false, // Also disable prompt magic
+      promptMagic: false, // Disable prompt magic
       
-      // NOTE: promptEnhance, presetStyle, private are UI-only settings
-      // They are not supported by Leonardo API and cause "Unexpected variable" errors
+      // STRUCTURE PRESERVATION (prevents loss of text, patterns, wrinkles):
+      controlnetType: "DEPTH", // or "CANNY" - preserves structural details
+      controlnetWeight: 0.8, // High weight = strong structure preservation (0.7-0.9)
+      
+      // STYLE CONTROL:
+      presetStyle: "NONE", // No style transfer - keep original appearance
+      
+      // IMAGE FIDELITY:
+      tiling: false, // Disable tiling
+      public: false, // Private generation
+      nsfw: false, // Disable content filtering
+      contrastRatio: 1.0, // Keep original contrast
+      highContrast: false, // Don't enhance contrast
+      highResolution: false, // Standard resolution
     };
 
-    console.log(`🔒 GARMENT LOCK MODE: alchemy=false, photoReal=false, strength=0.28`);
+    console.log(`🔒 MAXIMUM PRESERVATION MODE:`);
+    console.log(`   - alchemy: false, photoReal: false, strength: ${strength}`);
+    console.log(`   - controlnetType: DEPTH, controlnetWeight: 0.8`);
+    console.log(`   - presetStyle: NONE (no style transfer)`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
     
