@@ -295,7 +295,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     const {
       width = 1024,
       height = 1536, // 2:3 aspect ratio for fashion photography
-      strength = 0.35, // LOWER = more preservation (0.3-0.4 for exact outfit matching)
+      strength = 0.28, // CRITICAL: 0.28 for MAXIMUM garment preservation (DO NOT increase!)
       leonardoModel = DEFAULT_LEONARDO_MODEL, // Model selection
       customPrompt = null, // User's custom prompt
       customNegativePrompt = null, // User's custom negative prompt
@@ -306,28 +306,40 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     
     console.log(`🎨 Using Leonardo model: ${selectedModel.name} (${selectedModel.baseCredits} credits)`);
 
-    // Build prompt - use custom if provided, otherwise use ULTRA-SPECIFIC default
+    // Build prompt - use custom if provided, otherwise use PRODUCTION-TUNED default
     // NOTE: Leonardo AI analyzes init image automatically via img2img
-    // CRITICAL: Very specific prompt for EXACT outfit preservation
+    // CRITICAL: init_strength 0.28 + alchemy OFF = maximum garment lock
     let prompt;
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      // ULTRA-SPECIFIC Default prompt for PERFECT outfit preservation
-      prompt = `Professional fashion photography: Replace ONLY the model's face and hair with a different female model. CRITICAL REQUIREMENTS - DO NOT CHANGE:
-- EXACT SAME clothing items, colors, patterns, textures, fabric
-- EXACT SAME buttons, zippers, pockets, seams, stitching
-- EXACT SAME clothing fit, draping, wrinkles, folds
-- EXACT SAME body pose, stance, arms, hands, legs, feet position
-- EXACT SAME camera angle, framing, composition
-- EXACT SAME studio lighting, shadows, highlights
-- EXACT SAME background, floor, props, environment
-- EXACT SAME image quality, sharpness, depth of field
+      // PRODUCTION-TUNED prompt for ABSOLUTE outfit preservation
+      prompt = `Use the uploaded image as the exact base reference.
 
-ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hair (style, color, length). New model must have professional fashion model appearance, natural skin texture, realistic features, elegant expression. Photorealistic, ultra-detailed, 8K quality, studio-perfect.`;
-      console.log(`✏️ Using default ULTRA-SPECIFIC prompt for outfit preservation`);
+Preserve the outfit with absolute accuracy:
+same black tailored blazer with the same cut, lapel shape, sleeve length and fabric texture,
+same white high-neck crop top with identical fabric tension and transparency,
+same high-waisted white skirt with the exact same sheer fabric, opacity, folds, wrinkles and stretch marks,
+same elastic waistband with the CHEEYA text, identical font, emboss depth, alignment and spacing.
+
+Preserve every single garment detail exactly:
+all seams, stitches, folds, creases, fabric tension, shadows, wrinkles,
+edge lines, fabric thickness, elasticity and translucency must remain unchanged.
+
+Preserve the same body proportions, pose, posture, camera angle, framing and studio lighting.
+Preserve the same white studio background and soft fashion lighting.
+
+Only replace the woman's face and hair.
+The new female model should closely resemble the original woman
+(similar face shape, age, ethnicity, skin tone),
+but clearly be a different real person.
+
+Ultra-realistic fashion model photography.
+Natural skin texture with visible pores, realistic imperfections,
+professional fashion editorial look, no beauty filter.`;
+      console.log(`✏️ Using default PRODUCTION-TUNED prompt (init_strength 0.28, alchemy OFF)`);
     }
 
     // Ensure prompt doesn't exceed Leonardo's 1500 character limit
@@ -337,8 +349,8 @@ ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hai
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    // ULTRA-RESTRICTIVE Negative Prompt - List everything that MUST NOT change
-    const negativePrompt = customNegativePrompt || `different clothing, altered outfit, changed colors, different fabric, modified patterns, different textures, changed buttons, altered zippers, different pockets, modified seams, changed clothing fit, altered draping, different wrinkles, modified pose, different body position, changed arms, altered hands, different legs, modified feet, changed stance, different background, altered lighting, changed shadows, modified environment, different floor, altered props, changed camera angle, different framing, modified composition, clothing deformation, fabric distortion, color shift, pattern change, texture alteration, blurry, low quality, amateur, unrealistic, cartoon, illustration, painting, drawing, 3d render, cgi, distorted proportions, extra limbs, missing limbs, deformed hands, bad anatomy`;
+    // PRODUCTION-TUNED Negative Prompt - optimized for garment lock
+    const negativePrompt = customNegativePrompt || `changed outfit, different clothes, altered blazer, altered crop top, altered skirt, changed waistband, altered CHEEYA text, modified logo, different fabric, different transparency, different wrinkles, different pose, different body shape, different proportions, distorted hands, extra fingers, extra limbs, background change, lighting change, beauty filter, smooth plastic skin, doll face, face deformation, uncanny face, cartoon look, blurry, low quality, amateur, unrealistic, illustration, painting, drawing, 3d render, cgi`;
 
     console.log(`🚫 Negative prompt length: ${negativePrompt.length} chars`);
 
@@ -430,7 +442,7 @@ ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hai
     console.log(`🎨 Step 3/4: Generating new image...`);
     console.log(`📝 Payload: modelId=${modelId}, width=${width}, height=${height}, strength=${strength}`);
     
-    // Build request body - only include supported parameters
+    // Build request body - PRODUCTION-TUNED for absolute garment preservation
     const requestBody = {
       prompt: prompt,
       negative_prompt: negativePrompt,
@@ -439,20 +451,18 @@ ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hai
       height: height,
       num_images: 1,
       init_image_id: imageId,
-      init_strength: strength,
-      guidance_scale: 7,
+      init_strength: strength, // 0.28 = maximum garment lock
+      guidance_scale: 6.5, // Tuned for product-locked generation
+      seed: 12345, // Fixed seed for consistency (optional override via options)
+      
+      // CRITICAL: alchemy and photoReal MUST be OFF to preserve garments!
+      // Alchemy modifies clothing details, causing changes to fabric, wrinkles, colors
+      alchemy: false,
+      photoReal: false,
+      promptMagic: false, // Also disable prompt magic
     };
 
-    // Only add photoReal and alchemy for models that support it
-    if (selectedModel.features.includes("PhotoReal")) {
-      requestBody.alchemy = true; // REQUIRED for photoReal!
-      requestBody.photoReal = true;
-      requestBody.photoRealVersion = "v2";
-      console.log(`✨ Alchemy + PhotoReal enabled (v2)`);
-    } else if (selectedModel.features.includes("Alchemy")) {
-      requestBody.alchemy = true;
-      console.log(`✨ Alchemy enabled`);
-    }
+    console.log(`🔒 GARMENT LOCK MODE: alchemy=false, photoReal=false, strength=0.28`);
 
     console.log(`📤 Sending request to Leonardo AI...`);
     

@@ -67,21 +67,33 @@ function App() {
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
   const [customPrompt, setCustomPrompt] = React.useState(
-    `Professional fashion photography: Replace ONLY the model's face and hair with a different female model. CRITICAL REQUIREMENTS - DO NOT CHANGE:
-- EXACT SAME clothing items, colors, patterns, textures, fabric
-- EXACT SAME buttons, zippers, pockets, seams, stitching
-- EXACT SAME clothing fit, draping, wrinkles, folds
-- EXACT SAME body pose, stance, arms, hands, legs, feet position
-- EXACT SAME camera angle, framing, composition
-- EXACT SAME studio lighting, shadows, highlights
-- EXACT SAME background, floor, props, environment
-- EXACT SAME image quality, sharpness, depth of field
+    `Use the uploaded image as the exact base reference.
 
-ONLY CHANGE: Face features (eyes, nose, mouth, skin tone, facial structure), hair (style, color, length). New model must have professional fashion model appearance, natural skin texture, realistic features, elegant expression. Photorealistic, ultra-detailed, 8K quality, studio-perfect.`
-  ); // Ultra-specific custom prompt for perfect outfit preservation
+Preserve the outfit with absolute accuracy:
+same black tailored blazer with the same cut, lapel shape, sleeve length and fabric texture,
+same white high-neck crop top with identical fabric tension and transparency,
+same high-waisted white skirt with the exact same sheer fabric, opacity, folds, wrinkles and stretch marks,
+same elastic waistband with the CHEEYA text, identical font, emboss depth, alignment and spacing.
+
+Preserve every single garment detail exactly:
+all seams, stitches, folds, creases, fabric tension, shadows, wrinkles,
+edge lines, fabric thickness, elasticity and translucency must remain unchanged.
+
+Preserve the same body proportions, pose, posture, camera angle, framing and studio lighting.
+Preserve the same white studio background and soft fashion lighting.
+
+Only replace the woman's face and hair.
+The new female model should closely resemble the original woman
+(similar face shape, age, ethnicity, skin tone),
+but clearly be a different real person.
+
+Ultra-realistic fashion model photography.
+Natural skin texture with visible pores, realistic imperfections,
+professional fashion editorial look, no beauty filter.`
+  ); // Production-tuned prompt (init_strength 0.28, alchemy OFF)
   const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
-    "different clothing, altered outfit, changed colors, different fabric, modified patterns, different textures, changed buttons, altered zippers, different pockets, modified seams, changed clothing fit, altered draping, different wrinkles, modified pose, different body position, changed arms, altered hands, different legs, modified feet, changed stance, different background, altered lighting, changed shadows, modified environment, different floor, altered props, changed camera angle, different framing, modified composition, clothing deformation, fabric distortion, color shift, pattern change, texture alteration, blurry, low quality, amateur, unrealistic, cartoon, illustration, painting, drawing, 3d render, cgi, distorted proportions, extra limbs, missing limbs, deformed hands, bad anatomy"
-  ); // Ultra-restrictive negative prompt
+    "changed outfit, different clothes, altered blazer, altered crop top, altered skirt, changed waistband, altered CHEEYA text, modified logo, different fabric, different transparency, different wrinkles, different pose, different body shape, different proportions, distorted hands, extra fingers, extra limbs, background change, lighting change, beauty filter, smooth plastic skin, doll face, face deformation, uncanny face, cartoon look, blurry, low quality, amateur, unrealistic, illustration, painting, drawing, 3d render, cgi"
+  ); // Production-tuned negative prompt
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
