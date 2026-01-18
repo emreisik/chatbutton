@@ -604,21 +604,44 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     if (customPrompt) {
       // User provided custom prompt
       prompt = customPrompt;
-      // Append product analysis if available
+      // Append product analysis if available (truncate to fit Leonardo 1500 char limit)
       if (productAnalysis) {
-        prompt += `\n\nREFERENCE TO PRESERVE:\n${productAnalysis}`;
+        // Truncate analysis to fit within Leonardo's 1500 char limit
+        const maxAnalysisLength = 800; // Reserve space for custom prompt
+        const truncatedAnalysis = productAnalysis.length > maxAnalysisLength 
+          ? productAnalysis.substring(0, maxAnalysisLength) + '...' 
+          : productAnalysis;
+        prompt += `\n\nREFERENCE:\n${truncatedAnalysis}`;
       }
       console.log(`✏️ Using custom prompt from user`);
     } else {
       // Default prompt (fallback)
-      prompt = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.${productAnalysis ? `\n\nREFERENCE TO PRESERVE:\n${productAnalysis}` : ''}`;
+      const defaultPromptBase = `Replace the woman with a different female model. Keep the exact same outfit, same pose, same body, same studio lighting, same background, same framing. Only change the face and hair of the woman. Realistic fashion model, natural skin texture, professional studio look. Ultra detailed, photorealistic, 8K quality.`;
+      
+      if (productAnalysis) {
+        const maxAnalysisLength = 600;
+        const truncatedAnalysis = productAnalysis.length > maxAnalysisLength 
+          ? productAnalysis.substring(0, maxAnalysisLength) + '...' 
+          : productAnalysis;
+        prompt = `${defaultPromptBase}\n\nREFERENCE:\n${truncatedAnalysis}`;
+      } else {
+        prompt = defaultPromptBase;
+      }
       console.log(`✏️ Using default prompt`);
+    }
+
+    // Ensure prompt doesn't exceed Leonardo's 1500 character limit
+    const LEONARDO_MAX_PROMPT = 1500;
+    if (prompt.length > LEONARDO_MAX_PROMPT) {
+      console.warn(`⚠️ Prompt too long (${prompt.length} chars), truncating to ${LEONARDO_MAX_PROMPT}`);
+      prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
     const negativePrompt = customNegativePrompt || `different clothes, altered outfit, changed colors, different pose, different body shape, distorted hands, extra limbs, background change, lighting change, blurry, low quality, amateur, cartoon, illustration`;
 
     console.log(`🎨 Generating with Leonardo AI (img2img)...`);
-    console.log(`📝 Prompt preview: ${prompt.substring(0, 200)}...`);
+    console.log(`📝 Prompt length: ${prompt.length}/${LEONARDO_MAX_PROMPT} chars`);
+    console.log(`📝 Prompt preview: ${prompt.substring(0, 150)}...`);
     console.log(`🚫 Negative prompt: ${negativePrompt.substring(0, 100)}...`);
 
     // Step 1: Upload init image
