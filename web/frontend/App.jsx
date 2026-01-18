@@ -444,8 +444,8 @@ function App() {
         status: "success",
         title: `${imagesGenerated} görsel oluşturuldu! (${selectedProductDetails.length} ürün)`,
         content: uploadedToShopify > 0 
-          ? `${uploadedToShopify} görsel Shopify'a yüklendi! Tüm görsellerde aynı model (${MODEL_TYPES_MAP[selectedModelPersona]}) kullanıldı.` 
-          : "Görseller oluşturuldu. Tüm görsellerde aynı model kullanıldı.",
+          ? `✅ ${uploadedToShopify} görsel Shopify'a yüklendi!` 
+          : "✅ Görseller oluşturuldu.",
       });
       
       // Reload products to see new images
@@ -457,16 +457,6 @@ function App() {
         content: "Lütfen API anahtarlarınızı ve ayarlarınızı kontrol edin.",
       });
     }
-  };
-
-  // Model types map for display
-  const MODEL_TYPES_MAP = {
-    caucasian: "Beyaz Ten - Avrupa",
-    asian: "Asya",
-    african: "Afrika",
-    latin: "Latin",
-    middle_eastern: "Orta Doğu",
-    mixed: "Karma",
   };
 
   const filters = [
@@ -1041,7 +1031,6 @@ function App() {
                           <BlockStack gap="200">
                             <Text as="p" fontWeight="semibold">
                               {result.success ? "✅" : "❌"} {result.productName}
-                              {result.modelPersona && ` (${MODEL_TYPES_MAP[result.modelPersona]})`}
                             </Text>
                             
                             {/* Before/After Image Preview */}
