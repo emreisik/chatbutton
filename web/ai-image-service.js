@@ -20,6 +20,36 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
 }
 
 /**
+ * Model Tipleri (Tutarlılık için)
+ */
+export const MODEL_TYPES = {
+  caucasian: {
+    name: "Beyaz Ten - Avrupa",
+    description: "25 year old Caucasian female model with fair skin, light brown wavy hair, hazel eyes, defined cheekbones, natural makeup, elegant and sophisticated look, professional model appearance",
+  },
+  asian: {
+    name: "Asya",
+    description: "25 year old East Asian female model with smooth porcelain skin, straight black hair, almond-shaped dark eyes, delicate features, natural makeup, graceful and elegant appearance, professional model",
+  },
+  african: {
+    name: "Afrika",
+    description: "25 year old African female model with beautiful dark skin, natural curly black hair, expressive dark eyes, high cheekbones, radiant smile, confident pose, professional model appearance",
+  },
+  latin: {
+    name: "Latin",
+    description: "25 year old Latina female model with warm olive skin, long dark brown hair, deep brown eyes, striking features, natural makeup, vibrant and confident look, professional model",
+  },
+  middle_eastern: {
+    name: "Orta Doğu",
+    description: "25 year old Middle Eastern female model with olive skin, long dark hair, deep brown eyes, elegant features, subtle makeup, sophisticated and graceful appearance, professional model",
+  },
+  mixed: {
+    name: "Karma",
+    description: "25 year old mixed-race female model with warm beige skin, wavy brown hair, expressive eyes, unique features, natural makeup, modern and versatile look, professional model appearance",
+  },
+};
+
+/**
  * E-ticaret Prompt Şablonları
  */
 export const PROMPT_TEMPLATES = {
@@ -30,8 +60,19 @@ export const PROMPT_TEMPLATES = {
   },
   female_model: {
     name: "Kadın Model ile Ürün",
-    prompt: (productName) =>
-      `Beautiful young female model wearing or holding ${productName}, professional fashion photography, elegant pose, natural lighting, lifestyle setting, modern and trendy, photorealistic, magazine quality, 8K`,
+    prompt: (productName, productAnalysis, modelType = "caucasian") => {
+      const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
+      
+      return `Professional fashion photography: ${modelDesc} is wearing/modeling ${productName}. 
+
+IMPORTANT: Show the model's face clearly and prominently in the frame. The face should be visible, well-lit, and in focus. Model should be looking at camera with a natural, friendly expression.
+
+${productAnalysis ? `\nPRODUCT DETAILS:\n${productAnalysis}\n` : ''}
+
+Photography style: Professional fashion editorial, clean background or lifestyle setting, natural lighting, elegant pose, high-end magazine quality, photorealistic, sharp focus on both face and product, 8K resolution.
+
+CRITICAL: The model's face must be clearly visible and should be a focal point of the image. Show face, expression, and maintain consistent model appearance throughout all images.`;
+    },
   },
   lifestyle: {
     name: "Lifestyle Çekim",
@@ -50,8 +91,19 @@ export const PROMPT_TEMPLATES = {
   },
   luxury_fashion: {
     name: "Lüks Moda",
-    prompt: (productName) =>
-      `High-end luxury fashion photography of ${productName}, sophisticated model, glamorous setting, dramatic lighting, editorial style, vogue magazine aesthetic, ultra-premium feel, photorealistic, 8K quality`,
+    prompt: (productName, productAnalysis, modelType = "caucasian") => {
+      const modelDesc = MODEL_TYPES[modelType]?.description || MODEL_TYPES.caucasian.description;
+      
+      return `High-end luxury fashion editorial: ${modelDesc} wearing ${productName}.
+
+IMPORTANT: Model's face must be clearly visible, well-lit, and in sharp focus. Show facial features, expression, and emotion.
+
+${productAnalysis ? `\nPRODUCT DETAILS:\n${productAnalysis}\n` : ''}
+
+Setting: Glamorous studio or luxury environment, dramatic professional lighting, vogue magazine aesthetic, sophisticated pose, editorial style, ultra-premium quality, photorealistic, 8K resolution.
+
+CRITICAL: Maintain consistent model appearance and ensure face is a prominent element of the composition.`;
+    },
   },
 };
 
@@ -125,44 +177,22 @@ export async function generateWithDALLE3(productName, templateKey = "ecommerce_w
       throw new Error(`Template not found: ${templateKey}`);
     }
 
-    const { quality = "standard", size = "1024x1024", currentImageUrl, productAnalysis } = options;
+    const { 
+      quality = "standard", 
+      size = "1024x1024", 
+      currentImageUrl, 
+      productAnalysis,
+      modelType = "caucasian" // Default model type
+    } = options;
 
     let prompt;
 
-    // If we have analysis from existing image, use it
-    if (productAnalysis) {
-      console.log(`🎨 Generating NEW image based on existing product analysis`);
-      
-      // Create template-specific prompt using the analysis
-      const templateInstructions = {
-        female_model: "Beautiful young female model wearing this product, professional fashion photography, elegant pose, natural lighting, lifestyle setting, modern and trendy",
-        ecommerce_white: "Professional e-commerce product photography, clean white background, studio lighting, high resolution, centered composition",
-        lifestyle: "Product in a beautiful lifestyle setting, natural environment, warm lighting, cozy atmosphere, real-life usage scenario",
-        studio_premium: "Luxury studio photography, dramatic lighting, elegant composition, high-end fashion aesthetic, soft shadows",
-        minimalist: "Minimalist product photography, simple composition, neutral tones, clean lines, modern aesthetic",
-        luxury_fashion: "High-end luxury fashion photography, sophisticated model, glamorous setting, dramatic lighting, editorial style, vogue magazine aesthetic",
-      };
-
-      const styleInstruction = templateInstructions[templateKey] || templateInstructions.ecommerce_white;
-
-      prompt = `Create a professional product photograph with the following specifications:
-
-PRODUCT DETAILS (from existing image):
-${productAnalysis}
-
-PHOTOGRAPHY STYLE:
-${styleInstruction}
-
-Requirements:
-- Maintain exact product appearance (colors, design, details)
-- Professional photography quality
-- Photorealistic, high resolution 8K
-- Focus on showcasing the product beautifully
-- ${templateKey === 'female_model' ? 'Include an attractive female model wearing/using the product' : 'Product-focused composition'}`;
-
+    // Use template's prompt function with product analysis and model type
+    if (typeof template.prompt === 'function') {
+      prompt = template.prompt(productName, productAnalysis, modelType);
     } else {
       // Fallback to simple text prompt
-      prompt = template.prompt(productName);
+      prompt = template.prompt;
     }
 
     console.log(`🎨 Generating image with DALL-E 3 for: ${productName}`);

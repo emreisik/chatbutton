@@ -10,7 +10,8 @@ import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
 import { 
   generateProductImage, 
-  PROMPT_TEMPLATES, 
+  PROMPT_TEMPLATES,
+  MODEL_TYPES, 
   uploadImageToShopify,
   uploadBase64ToCloudinary,
 } from "./ai-image-service.js";
@@ -264,11 +265,34 @@ app.get("/api/ai/templates", (req, res) => {
 });
 
 /**
+ * API Endpoint: Get Available Model Types (for consistent female model)
+ */
+app.get("/api/ai/model-types", (req, res) => {
+  const modelTypes = Object.entries(MODEL_TYPES).map(([key, value]) => ({
+    id: key,
+    name: value.name,
+    description: value.description,
+  }));
+  
+  res.json({ modelTypes });
+});
+
+/**
  * API Endpoint: Generate AI Product Image
  */
 app.post("/api/products/generate-image", async (req, res) => {
   try {
-    const { productId, productName, currentImageUrl, templateKey, uploadToShopify, modelType, quality, size } = req.body;
+    const { 
+      productId, 
+      productName, 
+      currentImageUrl, 
+      templateKey, 
+      uploadToShopify, 
+      modelType, 
+      quality, 
+      size,
+      modelPersona // Model tipi (caucasian, asian, african, etc.)
+    } = req.body;
 
     if (!productId || !productName) {
       return res.status(400).json({ 
@@ -278,6 +302,7 @@ app.post("/api/products/generate-image", async (req, res) => {
 
     console.log(`🎨 Generating AI image for product: ${productName}`);
     console.log(`📸 Existing image: ${currentImageUrl ? 'YES - will analyze' : 'NO - text-only prompt'}`);
+    console.log(`👤 Model persona: ${modelPersona || 'caucasian (default)'}`);
 
     // Get session
     const session = await getSessionFromRequest(req);
@@ -294,6 +319,7 @@ app.post("/api/products/generate-image", async (req, res) => {
         currentImageUrl: currentImageUrl, // Pass existing image for analysis
         quality: quality || "standard",
         size: size || "1024x1024",
+        modelType: modelPersona || "caucasian", // Pass model persona
       }
     );
 
@@ -375,7 +401,7 @@ app.post("/api/products/generate-image", async (req, res) => {
 });
 
 /**
- * API Endpoint: Get Single Product
+ * API Endpoint: Get Single Product with ALL Images
  */
 app.get("/api/products/:id", async (req, res) => {
   try {
@@ -388,28 +414,82 @@ app.get("/api/products/:id", async (req, res) => {
       });
     }
 
-    const client = new shopify.clients.Rest({
-      session,
-      apiVersion: shopify.config.apiVersion,
-    });
-
-    const response = await client.get({
-      path: `products/${id}`,
-    });
-
-    const product = response.body.product;
+    // Use GraphQL to get product with all images
+    const client = new shopify.clients.Graphql({ session });
     
+    const query = `
+      query getProduct($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          description
+          status
+          vendor
+          featuredImage {
+            id
+            url
+            altText
+          }
+          images(first: 50) {
+            edges {
+              node {
+                id
+                url
+                altText
+              }
+            }
+          }
+          variants(first: 1) {
+            edges {
+              node {
+                price
+                inventoryQuantity
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await client.query({
+      data: {
+        query,
+        variables: { id: `gid://shopify/Product/${id}` },
+      },
+    });
+
+    const product = response.body.data.product;
+    
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const variant = product.variants.edges[0]?.node;
+    const images = product.images.edges.map(edge => ({
+      id: edge.node.id.split('/').pop(),
+      url: edge.node.url,
+      altText: edge.node.altText,
+    }));
+
     res.json({
-      id: product.id.toString(),
+      id: product.id.split('/').pop(),
       title: product.title,
-      price: product.variants?.[0]?.price || "0.00",
-      inventory: product.variants?.[0]?.inventory_quantity || 0,
-      status: product.status,
-      image: product.images?.[0]?.src || null,
+      description: product.description,
+      price: variant?.price || "0.00",
+      inventory: variant?.inventoryQuantity || 0,
+      status: product.status.toLowerCase(),
+      vendor: product.vendor,
+      featuredImage: product.featuredImage ? {
+        id: product.featuredImage.id.split('/').pop(),
+        url: product.featuredImage.url,
+        altText: product.featuredImage.altText,
+      } : null,
+      images: images, // All product images
+      totalImages: images.length,
     });
   } catch (error) {
     console.error("❌ Error fetching product:", error);
-    res.status(404).json({ error: "Product not found" });
+    res.status(404).json({ error: "Product not found", details: error.message });
   }
 });
 
