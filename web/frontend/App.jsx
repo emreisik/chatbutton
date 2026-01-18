@@ -65,12 +65,11 @@ function App() {
   // AI Modal state'leri
   const [aiModalActive, setAiModalActive] = React.useState(false);
   const [aiTemplates, setAiTemplates] = React.useState([]);
-  const [modelTypes, setModelTypes] = React.useState([]); // Yeni: Model tipleri
+  const [modelTypes, setModelTypes] = React.useState([]); // Model persona tipleri
+  const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedTemplate, setSelectedTemplate] = React.useState("female_model"); // Default: Kadın model
-  const [selectedModel, setSelectedModel] = React.useState("openai");
-  const [selectedModelPersona, setSelectedModelPersona] = React.useState("caucasian"); // Yeni: Aynı kadın için
-  const [selectedQuality, setSelectedQuality] = React.useState("hd"); // Default: HD
-  const [selectedSize, setSelectedSize] = React.useState("1024x1024");
+  const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
+  const [selectedModelPersona, setSelectedModelPersona] = React.useState("caucasian"); // Aynı kadın için
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
@@ -89,6 +88,7 @@ function App() {
     loadProducts();
     loadAITemplates();
     loadModelTypes();
+    loadLeonardoModels();
   }, []);
 
   // Load AI templates
@@ -112,6 +112,18 @@ function App() {
       console.log("✅ Model Types loaded:", data.modelTypes);
     } catch (error) {
       console.error("❌ Failed to load model types:", error);
+    }
+  };
+
+  // Load Leonardo AI Models
+  const loadLeonardoModels = async () => {
+    try {
+      const response = await fetch("/api/ai/leonardo-models");
+      const data = await response.json();
+      setLeonardoModels(data.models || []);
+      console.log("✅ Leonardo Models loaded:", data.models);
+    } catch (error) {
+      console.error("❌ Failed to load Leonardo models:", error);
     }
   };
 
@@ -363,10 +375,9 @@ function App() {
               productName: product.title,
               currentImageUrl: image.url, // Each existing image
               templateKey: selectedTemplate,
-              modelType: selectedModel,
-              modelPersona: selectedModelPersona, // CRITICAL: Same model for all images
-              quality: selectedQuality,
-              size: selectedSize,
+              modelType: "leonardo", // Always Leonardo AI
+              leonardoModel: selectedLeonardoModel, // Selected Leonardo model
+              modelPersona: selectedModelPersona, // Same female model for all images
               uploadToShopify: uploadToShopify,
             }),
           });
@@ -870,30 +881,48 @@ function App() {
                 </div>
               </Card>
 
-              {/* AI Model Seçimi */}
+              {/* Leonardo AI Model Seçimi */}
               <Card>
                 <div style={{ padding: "1rem" }}>
-                  <BlockStack gap="300">
-                    <Text as="h3" variant="headingSm" fontWeight="semibold">
-                      AI Modeli
+                  <BlockStack gap="400">
+                    <Text as="h2" variant="headingMd" fontWeight="semibold">
+                      🎨 Leonardo AI Model
                     </Text>
                     <Select
-                      label="Model"
-                      options={[
-                        { label: "🎨 Leonardo AI PhotoReal - img2img ($0.018/görsel)", value: "leonardo" },
-                        { label: "🎨 OpenAI DALL-E 3 HD ($0.08/görsel)", value: "openai" },
-                        { label: "🤖 Google Gemini 2.0", value: "gemini" },
-                      ]}
-                      value={selectedModel}
-                      onChange={setSelectedModel}
+                      label="Model Seçimi"
+                      options={leonardoModels.map((m) => ({
+                        label: `${m.name} - ${m.baseCredits} credits${m.recommended ? ' ⭐' : ''}`,
+                        value: m.id,
+                      }))}
+                      value={selectedLeonardoModel}
+                      onChange={setSelectedLeonardoModel}
                       helpText={
-                        selectedModel === "leonardo" 
-                          ? "✅ En iyi kıyafet/poz koruması! 600+ görsel/ay için ekonomik."
-                          : selectedModel === "openai"
-                          ? "Hızlı sonuç, düşük hacim için uygun."
-                          : "Deneysel, prompt optimizasyonu."
+                        leonardoModels.find(m => m.id === selectedLeonardoModel)?.description || 
+                        "Model seçimi yapın"
                       }
                     />
+                    {(() => {
+                      const currentModel = leonardoModels.find(m => m.id === selectedLeonardoModel);
+                      if (!currentModel) return null;
+                      
+                      const costPerImage = (currentModel.baseCredits * 0.002).toFixed(3);
+                      const costFor100 = (currentModel.baseCredits * 0.002 * 100).toFixed(2);
+                      const costFor1000 = (currentModel.baseCredits * 0.002 * 1000).toFixed(2);
+                      
+                      return (
+                        <BlockStack gap="200">
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            <strong>Özellikler:</strong> {currentModel.features.join(', ')}
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="success">
+                            💰 <strong>${costPerImage}/görsel</strong>
+                          </Text>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            📊 100 görsel → ${costFor100} | 1000 görsel → ${costFor1000}
+                          </Text>
+                        </BlockStack>
+                      );
+                    })()}
                   </BlockStack>
                 </div>
               </Card>
@@ -919,90 +948,48 @@ function App() {
               </Card>
 
               {/* Model Persona - Tutarlı Kadın Modeli */}
-              {(selectedTemplate === "female_model" || selectedTemplate === "luxury_fashion") && (
-                <Card>
-                  <div style={{ padding: "1rem" }}>
-                    <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm" fontWeight="semibold">
-                        👤 Model Tipi (Tüm Görsellerde Aynı)
-                      </Text>
-                      <Text as="p" tone="subdued">
-                        Seçtiğiniz model tipi tüm görsellerde kullanılacak. Böylece tutarlı bir görünüm elde edilir.
-                      </Text>
-                      <Select
-                        label="Model"
-                        options={modelTypes.map((t) => ({
-                          label: t.name,
-                          value: t.id,
-                        }))}
-                        value={selectedModelPersona}
-                        onChange={setSelectedModelPersona}
-                      />
-                    </BlockStack>
-                  </div>
-                </Card>
-              )}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm" fontWeight="semibold">
+                      👤 Model Tipi (Tüm Görsellerde Aynı)
+                    </Text>
+                    <Text as="p" tone="subdued">
+                      Seçtiğiniz model tipi tüm görsellerde kullanılacak. Böylece tutarlı bir görünüm elde edilir.
+                    </Text>
+                    <Select
+                      label="Model"
+                      options={modelTypes.map((t) => ({
+                        label: t.name,
+                        value: t.id,
+                      }))}
+                      value={selectedModelPersona}
+                      onChange={setSelectedModelPersona}
+                    />
+                  </BlockStack>
+                </div>
+              </Card>
 
-              {/* Leonardo AI Info */}
-              {selectedModel === "leonardo" && (
-                <Card>
-                  <div style={{ padding: "1rem" }}>
-                    <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm" fontWeight="semibold">
-                        🎨 Leonardo AI PhotoReal
-                      </Text>
-                      <Text as="p" tone="subdued">
-                        <strong>img2img teknolojisi:</strong> Mevcut görseli analiz edip sadece yüzü değiştirir.
-                      </Text>
-                      <Text as="p" tone="success">
-                        ✅ Kıyafet, poz, ışık %100 korunur<br/>
-                        ✅ 2:3 oran (1024x1536) - fashion için ideal<br/>
-                        ✅ PhotoReal v2 - ultra gerçekçi yüzler<br/>
-                        ✅ ~40 saniye/görsel<br/>
-                        ✅ ~$0.018/görsel (600+ görselde ekonomik)
-                      </Text>
-                      <Text as="p" tone="subdued" variant="bodySm">
-                        <strong>Not:</strong> Leonardo AI için mevcut görsel zorunludur. img2img modu kullanılır.
-                      </Text>
-                    </BlockStack>
-                  </div>
-                </Card>
-              )}
-
-              {/* DALL-E 3 Options */}
-              {selectedModel === "openai" && (
-                <Card>
-                  <div style={{ padding: "1rem" }}>
-                    <BlockStack gap="300">
-                      <Text as="h3" variant="headingSm" fontWeight="semibold">
-                        DALL-E 3 Ayarları
-                      </Text>
-                      <Select
-                        label="Kalite"
-                        options={[
-                          { label: "Standard (Hızlı)", value: "standard" },
-                          { label: "HD (Yüksek Kalite)", value: "hd" },
-                        ]}
-                        value={selectedQuality}
-                        onChange={setSelectedQuality}
-                      />
-                      <Select
-                        label="Boyut"
-                        options={[
-                          { label: "1024x1024 (Kare)", value: "1024x1024" },
-                          { label: "1792x1024 (Yatay)", value: "1792x1024" },
-                          { label: "1024x1792 (Dikey)", value: "1024x1792" },
-                        ]}
-                        value={selectedSize}
-                        onChange={setSelectedSize}
-                      />
-                      <Text as="p" tone="subdued" variant="bodySm">
-                        <strong>Maliyet:</strong> Standard $0.04/görsel | HD $0.08/görsel
-                      </Text>
-                    </BlockStack>
-                  </div>
-                </Card>
-              )}
+              {/* Leonardo AI Info Card */}
+              <Card>
+                <div style={{ padding: "1rem" }}>
+                  <BlockStack gap="300">
+                    <Text as="h3" variant="headingSm" fontWeight="semibold">
+                      🎨 img2img Teknolojisi
+                    </Text>
+                    <Text as="p" tone="subdued">
+                      Mevcut görseli <strong>GPT-4 Vision ile analiz edip</strong>, Leonardo AI ile sadece yüzü değiştirir.
+                    </Text>
+                    <Text as="p" tone="success">
+                      ✅ Kıyafet, poz, ışık %100 korunur<br/>
+                      ✅ 2:3 oran (1024x1536) - fashion için ideal<br/>
+                      ✅ Ultra gerçekçi yüzler<br/>
+                      ✅ ~40-60 saniye/görsel<br/>
+                      ✅ Mevcut görsel <strong>zorunlu</strong>
+                    </Text>
+                  </BlockStack>
+                </div>
+              </Card>
 
               {/* Upload Option */}
               <Card>
@@ -1124,16 +1111,17 @@ function App() {
                       {generationResults.some(r => r.imageGenerated) ? (
                         <Banner status="success">
                           <Text as="p" variant="bodyS">
-                            ✨ {selectedModel === "openai" ? "DALL-E 3" : "Gemini 2.0"} ile görsel üretimi başarılı! 
+                            ✨ Leonardo AI ile görsel üretimi başarılı! 
                             {uploadToShopify && " Görseller otomatik olarak Shopify'a yüklendi."}
+                            {generationResults[0]?.creditsUsed && (
+                              <> 💰 {generationResults[0].creditsUsed} credits/görsel kullanıldı.</>
+                            )}
                           </Text>
                         </Banner>
                       ) : (
                         <Banner status="info">
                           <Text as="p" variant="bodyS">
-                            {selectedModel === "openai" 
-                              ? "DALL-E 3 ile profesyonel ürün görselleri oluşturulacak."
-                              : "Gemini 2.0 ile AI destekli görsel üretimi yapılacak."}
+                            🎨 Leonardo AI ile profesyonel moda görselleri oluşturulacak. Mevcut görsel analiz edilip sadece yüz değiştirilecek.
                           </Text>
                         </Banner>
                       )}
