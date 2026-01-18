@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { Provider as AppBridgeProvider } from "@shopify/app-bridge-react";
+import { Provider as AppBridgeProvider, useAppBridge } from "@shopify/app-bridge-react";
+import { getSessionToken } from "@shopify/app-bridge/utilities";
 import {
   AppProvider,
   Page,
@@ -40,8 +41,16 @@ function App() {
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [banner, setBanner] = React.useState(null);
+  
+  // Get App Bridge instance (if embedded)
+  let app = null;
+  try {
+    app = useAppBridge();
+  } catch (e) {
+    console.log("📱 Not in embedded context");
+  }
 
-  // Ürünleri yükle
+  // Load products on mount
   React.useEffect(() => {
     loadProducts();
   }, []);
@@ -51,8 +60,47 @@ function App() {
     setBanner(null);
     
     try {
-      const response = await fetch("/api/products");
+      // Get session token from App Bridge (if available)
+      let token = null;
+      if (app) {
+        try {
+          token = await getSessionToken(app);
+          console.log("🔑 Session token obtained from App Bridge");
+        } catch (error) {
+          console.error("⚠️ Failed to get session token:", error);
+        }
+      }
+
+      // Prepare headers
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+        console.log("📤 Sending request with Authorization header");
+      } else {
+        console.log("⚠️ No session token available, sending without auth");
+      }
+
+      // Fetch products
+      const response = await fetch("/api/products", { 
+        method: "GET",
+        headers: headers,
+        credentials: "include", // Include cookies
+      });
+      
       const data = await response.json();
+      
+      if (response.status === 401) {
+        console.error("❌ 401 Unauthorized");
+        setBanner({
+          status: "critical",
+          title: "Yetkilendirme hatası! Lütfen uygulamayı yeniden yükleyin.",
+          content: "OAuth akışını tamamlamak için /api/auth?shop=... URL'ini ziyaret edin.",
+        });
+        return;
+      }
       
       setProducts(data.products || []);
       
@@ -61,12 +109,13 @@ function App() {
         title: `${data.products?.length || 0} ürün başarıyla yüklendi!`,
       });
       
-      console.log("✅ Ürünler yüklendi:", data.products);
+      console.log("✅ Ürünler yüklendi:", data);
     } catch (error) {
       console.error("❌ Ürünler yüklenemedi:", error);
       setBanner({
         status: "critical",
         title: "Ürünler yüklenemedi! Lütfen tekrar deneyin.",
+        content: error.message,
       });
     } finally {
       setLoading(false);
