@@ -271,6 +271,54 @@ app.get("/api/ai/leonardo-models", (req, res) => {
 });
 
 /**
+ * API Endpoint: Upload Image to Shopify Product (Manual)
+ */
+app.post("/api/products/upload-image", async (req, res) => {
+  try {
+    const session = await getSessionFromRequest(req, res);
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { productId, imageUrl, altText } = req.body;
+
+    if (!productId || !imageUrl) {
+      return res.status(400).json({ error: "productId and imageUrl are required" });
+    }
+
+    const client = new shopify.clients.Rest({
+      session,
+      apiVersion: shopify.config.apiVersion,
+    });
+
+    console.log(`📤 Uploading image to product ${productId}`);
+    console.log(`🖼️ Image URL: ${imageUrl}`);
+
+    const shopifyImage = await uploadImageToShopify(
+      client,
+      productId,
+      imageUrl,
+      altText || "AI Generated Product Image"
+    );
+
+    console.log(`✅ Image uploaded successfully: ${shopifyImage.id}`);
+
+    res.json({
+      success: true,
+      shopifyImageId: shopifyImage.id,
+      message: "Image uploaded to Shopify successfully",
+    });
+
+  } catch (error) {
+    console.error("❌ Image upload error:", error);
+    res.status(500).json({
+      error: "Failed to upload image to Shopify",
+      details: error.message,
+    });
+  }
+});
+
+/**
  * API Endpoint: Generate AI Product Image
  */
 app.post("/api/products/generate-image", async (req, res) => {

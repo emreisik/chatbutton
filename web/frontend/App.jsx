@@ -1070,11 +1070,64 @@ function App() {
                                     </div>
                                   )}
                                 </InlineStack>
-                                {result.uploadedToShopify && (
-                                  <Badge status="success" style={{ marginTop: "0.5rem" }}>
-                                    ✓ Shopify'a Yüklendi
-                                  </Badge>
-                                )}
+                                
+                                {/* Upload Status & Actions */}
+                                <div style={{ marginTop: "0.75rem" }}>
+                                  {result.uploadedToShopify ? (
+                                    <Badge status="success">
+                                      ✓ Shopify'a Yüklendi
+                                    </Badge>
+                                  ) : result.success && result.newImageUrl && (
+                                    <InlineStack gap="200">
+                                      <Badge status="warning">
+                                        Shopify'a Yüklenmedi
+                                      </Badge>
+                                      <Button
+                                        size="slim"
+                                        onClick={async () => {
+                                          try {
+                                            const sessionToken = await getSessionToken(app);
+                                            const response = await fetch("/api/products/upload-image", {
+                                              method: "POST",
+                                              headers: {
+                                                "Content-Type": "application/json",
+                                                Authorization: `Bearer ${sessionToken}`,
+                                              },
+                                              credentials: "include",
+                                              body: JSON.stringify({
+                                                productId: result.productId,
+                                                imageUrl: result.newImageUrl,
+                                                altText: result.productName,
+                                              }),
+                                            });
+                                            
+                                            if (response.ok) {
+                                              setBanner({
+                                                status: "success",
+                                                title: "Başarılı!",
+                                                content: `${result.productName} görseli Shopify'a yüklendi.`,
+                                              });
+                                              // Update result
+                                              result.uploadedToShopify = true;
+                                              setGenerationResults([...generationResults]);
+                                              await loadProducts();
+                                            } else {
+                                              throw new Error("Upload failed");
+                                            }
+                                          } catch (error) {
+                                            setBanner({
+                                              status: "critical",
+                                              title: "Yükleme Hatası",
+                                              content: error.message,
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        Shopify'a Yükle
+                                      </Button>
+                                    </InlineStack>
+                                  )}
+                                </div>
                               </div>
                             )}
                             
