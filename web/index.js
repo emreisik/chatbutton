@@ -101,8 +101,20 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
 
     console.log(`👤 Virtual Try-On: ${productName || 'Unknown'} (IP: ${ip})`);
 
-    // FACE SWAP MODE: Replace only the model's face, keep everything else identical
-    console.log('🎭 Face Swap Mode: Replacing face only, preserving clothing and pose');
+    // VIRTUAL TRY-ON MODE: Replace model, keep clothing identical
+    console.log('👗 Virtual Try-On Mode: Replace model while preserving exact outfit');
+    
+    // Upload customer image to Cloudinary for reference
+    let customerImageUrl = null;
+    if (customerImage) {
+      try {
+        console.log('📤 Uploading customer image to Cloudinary...');
+        customerImageUrl = await uploadBase64ToCloudinary(customerImage, 'virtual-tryon-customer');
+        console.log('✅ Customer image uploaded:', customerImageUrl);
+      } catch (uploadError) {
+        console.error('⚠️ Customer image upload failed:', uploadError.message);
+      }
+    }
     
     const result = await generateWithLeonardo(
       productImageUrl,
@@ -110,9 +122,10 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
       null,
       {
         leonardoModel: "nano-banana-pro",
-        strength: 0.2, // VERY LOW: Preserve original image (clothing, pose, lighting)
-        customPrompt: "Face swap only: Replace the face in this image while keeping everything else EXACTLY the same. Same clothing, same pose, same body, same background, same lighting. Only the facial features should change. Photorealistic face replacement, seamless blend, natural skin tones, professional retouching.",
-        customNegativePrompt: "different clothing, changed outfit, new clothes, altered garments, different accessories, modified style, changed background, different pose, body modifications, new setting, altered composition"
+        strength: 0.15, // VERY LOW: Maximum clothing preservation
+        customPrompt: `Full body virtual try-on: The person should wear the EXACT SAME outfit from the original image. Keep every detail of the clothing identical - same colors, same patterns, same style, same fit. Only change the model's face and body to match a different person. The clothing must remain 100% unchanged. Professional fashion photography, studio lighting, photorealistic.${customerImageUrl ? ` Reference person from: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "different clothing, changed outfit, modified garments, altered colors, different patterns, new accessories, clothing variations, outfit changes, style modifications, wardrobe changes",
+        customerImageUrl: customerImageUrl, // Pass customer image URL for potential future use
       }
     );
 
@@ -723,8 +736,20 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
 
     console.log(`👤 Virtual Try-On (App Proxy): ${productName || 'Unknown'} (IP: ${ip})`);
 
-    // FACE SWAP MODE: Replace only the model's face, keep everything else identical
-    console.log('🎭 Face Swap Mode: Replacing face only, preserving clothing and pose');
+    // VIRTUAL TRY-ON MODE: Replace model, keep clothing identical
+    console.log('👗 Virtual Try-On Mode: Replace model while preserving exact outfit');
+    
+    // Upload customer image to Cloudinary for reference
+    let customerImageUrl = null;
+    if (customerImage) {
+      try {
+        console.log('📤 Uploading customer image to Cloudinary...');
+        customerImageUrl = await uploadBase64ToCloudinary(customerImage, 'virtual-tryon-customer');
+        console.log('✅ Customer image uploaded:', customerImageUrl);
+      } catch (uploadError) {
+        console.error('⚠️ Customer image upload failed:', uploadError.message);
+      }
+    }
     
     const result = await generateWithLeonardo(
       productImageUrl,
@@ -732,9 +757,10 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
       null,
       {
         leonardoModel: "nano-banana-pro",
-        strength: 0.2, // VERY LOW: Preserve original image (clothing, pose, lighting)
-        customPrompt: "Face swap only: Replace the face in this image while keeping everything else EXACTLY the same. Same clothing, same pose, same body, same background, same lighting. Only the facial features should change. Photorealistic face replacement, seamless blend, natural skin tones, professional retouching.",
-        customNegativePrompt: "different clothing, changed outfit, new clothes, altered garments, different accessories, modified style, changed background, different pose, body modifications, new setting, altered composition"
+        strength: 0.15, // VERY LOW: Maximum clothing preservation
+        customPrompt: `Full body virtual try-on: The person should wear the EXACT SAME outfit from the original image. Keep every detail of the clothing identical - same colors, same patterns, same style, same fit. Only change the model's face and body to match a different person. The clothing must remain 100% unchanged. Professional fashion photography, studio lighting, photorealistic.${customerImageUrl ? ` Reference person from: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "different clothing, changed outfit, modified garments, altered colors, different patterns, new accessories, clothing variations, outfit changes, style modifications, wardrobe changes",
+        customerImageUrl: customerImageUrl, // Pass customer image URL for potential future use
       }
     );
 
