@@ -282,6 +282,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     console.log(`   - photoReal: v2, alchemy: true, promptMagic: v3`);
     const generationResponse = await axios.post(
       `${LEONARDO_API_URL}/generations`,
+      requestBody,
       {
         headers: {
           Authorization: `Bearer ${LEONARDO_API_KEY}`,
@@ -289,7 +290,6 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
         },
       }
     );
-
     const generationId = generationResponse.data.sdGenerationJob.generationId;
     console.log(`🔄 Generation ID: ${generationId}`);
 

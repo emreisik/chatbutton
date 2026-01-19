@@ -1,0 +1,16 @@
+Manuel Düzeltme: ai-image-service.js
+
+Satır 268'i bulun:
+      init_strength: 0.35,
+
+Şununla değiştirin:
+      init_strength: strength, // DYNAMIC: lower = preserve more of original
+
+Satır 280'i bulun:
+    console.log(`   - init_strength: 0.35 (Face changes, garments preserved)`);
+
+Şununla değiştirin:
+    console.log(`   - init_strength: ${strength} (Lower = preserve original more)`);
+
+Bu değişikliklerle strength parametresi dinamik olarak kullanılacak.
+Virtual Try-On endpoint'lerinden strength: 0.2 gönderildiğinde, kıyafet daha iyi korunacak.
