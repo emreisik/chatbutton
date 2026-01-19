@@ -9,7 +9,7 @@ dotenv.config();
 export const shopify = shopifyApi({
   apiKey: process.env.SHOPIFY_API_KEY || "d8437b8ce81f6502e6eb89d102ebbf7d",
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  scopes: ["read_products", "write_online_store_pages"],
+  scopes: ["read_products", "write_products", "write_online_store_pages"],
   hostName: process.env.HOST?.replace(/https?:\/\//, "") || "localhost:8080",
   hostScheme: process.env.NODE_ENV === "production" ? "https" : "http",
   apiVersion: LATEST_API_VERSION,

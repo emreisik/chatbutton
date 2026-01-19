@@ -7,7 +7,7 @@ embedded = true
 
 [access_scopes]
 # Required for reading and writing app metafields
-scopes = "write_online_store_pages,read_products"
+scopes = "write_online_store_pages,read_products,write_products"
 
 [auth]
 redirect_urls = [
