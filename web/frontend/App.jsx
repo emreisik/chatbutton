@@ -897,7 +897,8 @@ function App() {
                       🎨 Leonardo AI Settings
                     </Text>
                     
-                    {/* Generation Method */}
+                    {/* Generation Method - DISABLED: Canvas Inpainting temporarily unavailable */}
+                    {/* Uncomment when Canvas Inpainting is re-enabled with native dependencies
                     <BlockStack gap="200">
                       <Text as="h3" variant="headingSm" fontWeight="semibold">
                         Generation Method
@@ -924,7 +925,6 @@ function App() {
                       />
                     </BlockStack>
 
-                    {/* Canvas Inpainting Options */}
                     {generationMethod === "canvas-inpainting" && (
                       <BlockStack gap="200">
                         <Checkbox
@@ -935,6 +935,7 @@ function App() {
                         />
                       </BlockStack>
                     )}
+                    */}
                     
                     {/* Model Selection */}
                     <Select
