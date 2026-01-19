@@ -759,6 +759,10 @@ if (existsSync(STATIC_PATH)) {
  * Widget calls this endpoint via Shopify App Proxy
  */
 app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
+  console.log('🎯 POST /apps/ai-tryon/virtual-try-on HIT!');
+  console.log('📦 Content-Type:', req.headers['content-type']);
+  console.log('📦 Body keys:', Object.keys(req.body || {}));
+  
   try {
     // Rate limiting
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -815,6 +819,8 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
  * This enables virtual try-on widget to work on storefront
  */
 app.get('/apps/ai-tryon', (req, res) => {
+  console.log('🏠 GET /apps/ai-tryon HIT (root path)');
+  
   // Shopify App Proxy sends these parameters
   const { shop, logged_in_customer_id, timestamp, signature, path_prefix, ...rest } = req.query;
   
