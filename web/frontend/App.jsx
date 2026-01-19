@@ -66,33 +66,10 @@ function App() {
   const [aiModalActive, setAiModalActive] = React.useState(false);
   const [leonardoModels, setLeonardoModels] = React.useState([]); // Leonardo AI models
   const [selectedLeonardoModel, setSelectedLeonardoModel] = React.useState("nano-banana-pro"); // Leonardo model
-  const [customPrompt, setCustomPrompt] = React.useState(
-    `Image-to-image transformation. DUAL OBJECTIVES:
-
-OBJECTIVE 1 - ABSOLUTE GARMENT LOCK (HIGHEST PRIORITY):
-The clothing and all garment elements are COMPLETELY LOCKED and UNTOUCHABLE.
-ZERO modifications allowed to ANY garment aspect:
-- Colors, patterns, textures, fabrics (EXACT preservation)
-- Buttons, zippers, logos, text, embellishments (EXACT preservation)
-- Cuts, fits, shapes, draping, wrinkles, folds (EXACT preservation)
-- Seams, stitches, fabric tension, transparency (EXACT preservation)
-- Garment positioning and how clothes sit on body (EXACT preservation)
-
-ALSO preserve EXACTLY:
-- Body pose, stance, all hand/arm/leg positions
-- Camera angle, framing, composition
-- Lighting, shadows, highlights, studio setup
-- Background, floor, props
-- Image sharpness, quality
-
-OBJECTIVE 2 - FACE REPLACEMENT (SECONDARY):
-Replace the woman's face and hair with a CLEARLY DIFFERENT person.
-New model should have noticeably different facial features.
-Natural realistic appearance, professional fashion model look.`
-  ); // DUAL-PRIORITY prompt (init_strength 0.24: garment lock + face change)
-  const [customNegativePrompt, setCustomNegativePrompt] = React.useState(
-    "ANY clothing modification, ANY garment change, ANY fabric alteration, ANY color shift, ANY pattern modification, ANY texture change, ANY cut change, ANY fit change, ANY shape change, modified buttons, modified zippers, modified text, modified logos, modified embellishments, ANY seam change, ANY stitch change, ANY transparency change, ANY opacity change, ANY wrinkle change, ANY fold change, ANY draping change, garment deformation, fabric distortion, clothing replacement, outfit substitution, ANY pose change, ANY stance change, ANY hand position change, ANY arm position change, ANY leg position change, ANY body shape change, ANY camera angle change, ANY framing change, ANY composition change, ANY lighting change, ANY shadow change, ANY background change, ANY prop change, beauty filter, smooth skin, artificial look, cartoon, illustration, 3d render, painting, drawing, deformed, distorted, blurry, low quality, unrealistic"
-  ); // MAXIMUM RESTRICTIVE negative prompt
+  const [generationMethod, setGenerationMethod] = React.useState("img2img"); // "img2img" or "canvas-inpainting"
+  const [includeHair, setIncludeHair] = React.useState(false); // For canvas inpainting - change hair too?
+  const [customPrompt, setCustomPrompt] = React.useState("");
+  const [customNegativePrompt, setCustomNegativePrompt] = React.useState("");
   const [generatingImages, setGeneratingImages] = React.useState(false);
   const [generationProgress, setGenerationProgress] = React.useState(0);
   const [generationResults, setGenerationResults] = React.useState([]);
@@ -375,6 +352,8 @@ Natural realistic appearance, professional fashion model look.`
               imageId: image.id, // For unique job ID
               modelType: "leonardo",
               leonardoModel: selectedLeonardoModel,
+              generationMethod: generationMethod, // "img2img" or "canvas-inpainting"
+              includeHair: includeHair, // For canvas inpainting
               customPrompt: customPrompt, // Custom user prompt
               customNegativePrompt: customNegativePrompt, // Custom negative prompt
               uploadToShopify: uploadToShopify,
@@ -915,8 +894,49 @@ Natural realistic appearance, professional fashion model look.`
                 <div style={{ padding: "1rem" }}>
                   <BlockStack gap="400">
                     <Text as="h2" variant="headingMd" fontWeight="semibold">
-                      🎨 Leonardo AI Model
+                      🎨 Leonardo AI Settings
                     </Text>
+                    
+                    {/* Generation Method */}
+                    <BlockStack gap="200">
+                      <Text as="h3" variant="headingSm" fontWeight="semibold">
+                        Generation Method
+                      </Text>
+                      <Select
+                        label="Method"
+                        options={[
+                          { 
+                            label: "⚡ Standard (img2img) - Fast, ~80-90% garment preservation", 
+                            value: "img2img" 
+                          },
+                          { 
+                            label: "🎭 Canvas Inpainting - Slower, ~98-100% garment preservation", 
+                            value: "canvas-inpainting" 
+                          },
+                        ]}
+                        value={generationMethod}
+                        onChange={setGenerationMethod}
+                        helpText={
+                          generationMethod === "canvas-inpainting" 
+                            ? "Uses face detection mask - only changes face, preserves everything else"
+                            : "Standard img2img - faster but less precise preservation"
+                        }
+                      />
+                    </BlockStack>
+
+                    {/* Canvas Inpainting Options */}
+                    {generationMethod === "canvas-inpainting" && (
+                      <BlockStack gap="200">
+                        <Checkbox
+                          label="Include hair in mask (change hair too)"
+                          checked={includeHair}
+                          onChange={setIncludeHair}
+                          helpText="By default, only face changes. Check this to also change hair."
+                        />
+                      </BlockStack>
+                    )}
+                    
+                    {/* Model Selection */}
                     <Select
                       label="Model Seçimi"
                       options={leonardoModels.map((m) => ({

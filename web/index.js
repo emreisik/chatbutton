@@ -10,6 +10,7 @@ import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
 import { 
   generateWithLeonardo,
+  generateWithCanvasInpainting,
   LEONARDO_MODELS, 
   uploadImageToShopify,
   uploadBase64ToCloudinary,
@@ -332,6 +333,8 @@ app.post("/api/products/generate-image", async (req, res) => {
       customPrompt, // User's custom prompt
       customNegativePrompt, // User's custom negative prompt
       imageId, // For unique job ID per image
+      generationMethod, // "img2img" or "canvas-inpainting"
+      includeHair, // For canvas inpainting - change hair too?
     } = req.body;
 
     if (!productId || !productName) {
@@ -379,23 +382,42 @@ app.post("/api/products/generate-image", async (req, res) => {
     // Process generation in background (don't await)
     (async () => {
       try {
-        console.log(`🎨 [${jobId}] Generating with Leonardo AI...`);
+        const method = generationMethod || "img2img";
+        console.log(`🎨 [${jobId}] Generating with Leonardo AI (${method})...`);
         console.log(`📝 [${jobId}] Custom Prompt: ${customPrompt ? 'YES' : 'NO (using default)'}`);
-        console.log(`📸 [${jobId}] Leonardo will analyze init image automatically`);
         
-        const result = await generateWithLeonardo(
-          currentImageUrl,
-          productName,
-          null, // No GPT-4 Vision analysis - Leonardo handles it
-          {
-            width: 1024,
-            height: 1536,
-            strength: 0.5,
-            leonardoModel: leonardoModel || "nano-banana-pro",
-            customPrompt: customPrompt, // User's custom prompt
-            customNegativePrompt: customNegativePrompt, // User's custom negative prompt
-          }
-        );
+        let result;
+        
+        if (method === "canvas-inpainting") {
+          // Canvas Inpainting - 100% garment preservation with face mask
+          console.log(`🎭 [${jobId}] Using Canvas Inpainting (face mask)...`);
+          result = await generateWithCanvasInpainting(
+            currentImageUrl,
+            {
+              leonardoModel: leonardoModel || "nano-banana-pro",
+              customPrompt: customPrompt,
+              customNegativePrompt: customNegativePrompt,
+              includeHair: includeHair || false,
+              initStrength: 0.15, // Low = high preservation
+              guidanceScale: 7.0,
+            }
+          );
+        } else {
+          // Standard img2img - faster but less precise preservation
+          console.log(`📸 [${jobId}] Using img2img (standard)...`);
+          result = await generateWithLeonardo(
+            currentImageUrl,
+            productName,
+            null, // No GPT-4 Vision analysis - Leonardo handles it
+            {
+              // Use default dimensions from ai-image-service.js (848x1264 - Leonardo tested size)
+              // Use default init_strength from ai-image-service.js (0.15 - face-only changes)
+              leonardoModel: leonardoModel || "nano-banana-pro",
+              customPrompt: customPrompt, // User's custom prompt
+              customNegativePrompt: customNegativePrompt, // User's custom negative prompt
+            }
+          );
+        }
 
         console.log(`✅ [${jobId}] Generation complete!`);
         console.log(`💰 [${jobId}] Credits: ${result.creditsUsed}`);
