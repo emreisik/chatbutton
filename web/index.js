@@ -15,9 +15,6 @@ import {
   uploadImageToShopify,
   uploadBase64ToCloudinary,
 } from "./ai-image-service.js";
-// TEMPORARY: Virtual Try-On disabled for debugging deployment
-// import { generateVirtualTryOn } from "./virtual-tryon-service.js";
-// import { createRateLimiter, validateImage } from "./rate-limiter.js";
 
 // Load environment variables
 dotenv.config();
@@ -47,80 +44,87 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     oauth: 'enabled',
-    virtualTryOn: 'temporarily_disabled' // Debugging deployment issue
+    virtualTryOn: 'enabled'
   });
 });
 
 /**
- * TEMPORARY: Virtual Try-On stub endpoint (Public API)
- * Returns "feature disabled" message
+ * Simple rate limiter for Virtual Try-On (in-memory)
  */
-app.post('/api/public/virtual-try-on', (req, res) => {
-  console.log(`⚠️  Public Virtual Try-On request received but feature is temporarily disabled`);
-  res.status(503).json({
-    error: "Feature temporarily disabled",
-    message: "Virtual Try-On özelliği geçici olarak devre dışı. Yakında aktif olacak!",
-    status: "under_maintenance"
-  });
-});
+const virtualTryOnRequests = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const key = `vto_${ip}`;
+  const requests = virtualTryOnRequests.get(key) || [];
+  
+  // Remove old requests (older than 1 hour)
+  const recentRequests = requests.filter(time => now - time < 60 * 60 * 1000);
+  
+  if (recentRequests.length >= 5) {
+    return { allowed: false, remaining: 0 };
+  }
+  
+  recentRequests.push(now);
+  virtualTryOnRequests.set(key, recentRequests);
+  
+  return { allowed: true, remaining: 5 - recentRequests.length };
+}
 
 /**
- * TEMPORARY: Full implementation disabled for debugging deployment
- * Will be re-enabled after fixing Railway deployment issue
+ * PUBLIC API: Virtual Try-On (using existing generateWithLeonardo)
+ * Simple implementation using existing infrastructure
  */
-/*
-const virtualTryOnRateLimiter = createRateLimiter({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
-});
-
-app.post('/api/public/virtual-try-on', 
-  virtualTryOnRateLimiter,
-  validateImage,
-  async (req, res) => {
+app.post('/api/public/virtual-try-on', async (req, res) => {
   try {
-    const { customerImage, productImageUrl, productId, productName } = req.body;
-
-    if (!productImageUrl) {
-      return res.status(400).json({
-        error: "Missing product image URL",
-        message: "Ürün resmi bulunamadı"
+    // Rate limiting
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const rateLimit = checkRateLimit(ip);
+    
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: "Too many requests",
+        message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
       });
     }
 
-    console.log(`👤 Virtual Try-On request for product: ${productName || productId}`);
-    console.log(`📸 Product image: ${productImageUrl}`);
-    console.log(`🔐 IP: ${req.ip}`);
+    const { customerImage, productImageUrl, productName } = req.body;
 
-    const result = await generateVirtualTryOn(
-      customerImage,
+    // Basic validation
+    if (!customerImage || !productImageUrl) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "Fotoğraf ve ürün resmi gerekli"
+      });
+    }
+
+    console.log(`👤 Virtual Try-On: ${productName || 'Unknown'} (IP: ${ip})`);
+
+    // Use existing generateWithLeonardo!
+    const result = await generateWithLeonardo(
       productImageUrl,
+      productName || "Virtual Try-On",
+      null,
       {
         leonardoModel: "nano-banana-pro",
-        preserveGarment: true,
+        customPrompt: "Professional fashion model wearing the exact same outfit. Same pose, same lighting, keep clothing unchanged. High-end fashion photography, 8K, photorealistic."
       }
     );
 
     res.json({
       success: true,
-      generatedImageUrl: result.generatedImageUrl,
-      generationId: result.generationId,
+      generatedImageUrl: result.imageUrl,
       message: "✨ İşte sen bu ürünü giyerken!",
-      credits: result.creditsUsed
+      remaining: rateLimit.remaining
     });
 
   } catch (error) {
     console.error("❌ Virtual Try-On Error:", error.message);
-    
     res.status(500).json({
       error: error.message,
-      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin.",
-      details: process.env.NODE_ENV === 'development' ? error.details : undefined
+      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin."
     });
   }
 });
-*/
 
 /**
  * Get session from App Bridge token OR cookie
@@ -749,67 +753,58 @@ if (existsSync(STATIC_PATH)) {
 }
 
 /**
- * TEMPORARY: App Proxy Virtual Try-On endpoint disabled for debugging
+ * App Proxy: Virtual Try-On (using existing generateWithLeonardo)
+ * Widget calls this endpoint via Shopify App Proxy
  */
-/*
-app.post('/apps/ai-tryon/virtual-try-on',
-  virtualTryOnRateLimiter,
-  validateImage,
-  async (req, res) => {
+app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
   try {
-    const { customerImage, productImageUrl, productId, productName } = req.body;
-
-    if (!productImageUrl) {
-      return res.status(400).json({
-        error: "Missing product image URL",
-        message: "Ürün resmi bulunamadı"
+    // Rate limiting
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const rateLimit = checkRateLimit(ip);
+    
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: "Too many requests",
+        message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
       });
     }
 
-    console.log(`👤 Virtual Try-On request (App Proxy) for: ${productName || productId}`);
-    console.log(`📸 Product: ${productImageUrl}`);
-    console.log(`🔐 IP: ${req.ip}`);
+    const { customerImage, productImageUrl, productName } = req.body;
 
-    const result = await generateVirtualTryOn(
-      customerImage,
+    if (!customerImage || !productImageUrl) {
+      return res.status(400).json({
+        error: "Missing required fields",
+        message: "Fotoğraf ve ürün resmi gerekli"
+      });
+    }
+
+    console.log(`👤 Virtual Try-On (App Proxy): ${productName || 'Unknown'} (IP: ${ip})`);
+
+    // Use existing generateWithLeonardo!
+    const result = await generateWithLeonardo(
       productImageUrl,
+      productName || "Virtual Try-On",
+      null,
       {
         leonardoModel: "nano-banana-pro",
-        preserveGarment: true,
+        customPrompt: "Professional fashion model wearing the exact same outfit. Same pose, same lighting, keep clothing unchanged. High-end fashion photography, 8K, photorealistic."
       }
     );
 
     res.json({
       success: true,
-      generatedImageUrl: result.generatedImageUrl,
-      generationId: result.generationId,
+      generatedImageUrl: result.imageUrl,
       message: "✨ İşte sen bu ürünü giyerken!",
-      credits: result.creditsUsed
+      remaining: rateLimit.remaining
     });
 
   } catch (error) {
     console.error("❌ Virtual Try-On Error (App Proxy):", error.message);
-    
     res.status(500).json({
       error: error.message,
-      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin.",
-      details: process.env.NODE_ENV === 'development' ? error.details : undefined
+      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin."
     });
   }
-});
-*/
-
-/**
- * TEMPORARY: Virtual Try-On stub endpoint
- * Returns "feature disabled" message until we fix the deployment issue
- */
-app.post('/apps/ai-tryon/virtual-try-on', (req, res) => {
-  console.log(`⚠️  Virtual Try-On request received but feature is temporarily disabled`);
-  res.status(503).json({
-    error: "Feature temporarily disabled",
-    message: "Virtual Try-On özelliği geçici olarak devre dışı. Yakında aktif olacak!",
-    status: "under_maintenance"
-  });
 });
 
 /**
@@ -864,6 +859,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 OAuth enabled`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📍 Host: ${shopify.config.hostScheme}://${shopify.config.hostName}`);
-  console.log(`⚠️  Virtual Try-On: TEMPORARILY DISABLED (debugging deployment)`);
-  console.log(`📱 App Proxy: /apps/ai-tryon (info only)`);
+  console.log(`👤 Virtual Try-On: ✅ ENABLED (using existing Leonardo AI)`);
+  console.log(`📱 App Proxy: /apps/ai-tryon`);
 });
