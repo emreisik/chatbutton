@@ -681,78 +681,11 @@ app.get("/api/products/:id", async (req, res) => {
   }
 });
 
-// Serve static frontend files if they exist
-const STATIC_PATH = join(__dirname, "frontend", "dist");
-console.log(`🔍 Looking for frontend at: ${STATIC_PATH}`);
-console.log(`📂 Frontend exists: ${existsSync(STATIC_PATH)}`);
-
-if (existsSync(STATIC_PATH)) {
-  console.log(`✅ Serving static files from: ${STATIC_PATH}`);
-  app.use(serveStatic(STATIC_PATH, { index: false }));
-
-  // Serve the React app for all other routes
-  app.use("/*", async (_req, res, _next) => {
-    const indexPath = join(STATIC_PATH, "index.html");
-    if (existsSync(indexPath)) {
-      return res
-        .status(200)
-        .set("Content-Type", "text/html")
-        .send(readFileSync(indexPath));
-    }
-    res.status(404).send("Frontend not built yet");
-  });
-} else {
-  // Fallback if frontend not built
-  app.get("/*", (req, res) => {
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Product List App</title>
-          <style>
-            body { 
-              font-family: system-ui; 
-              display: flex; 
-              justify-content: center; 
-              align-items: center; 
-              height: 100vh; 
-              margin: 0;
-              background: #f5f5f5;
-            }
-            .container {
-              text-align: center;
-              padding: 2rem;
-              background: white;
-              border-radius: 8px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-            h1 { color: #008060; }
-            p { color: #666; }
-            .status { 
-              display: inline-block;
-              padding: 8px 16px;
-              background: #008060;
-              color: white;
-              border-radius: 4px;
-              margin-top: 1rem;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>📦 Product List App</h1>
-            <p>OAuth-enabled Shopify App</p>
-            <div class="status">✓ Server Running with OAuth</div>
-            <p style="margin-top: 2rem; font-size: 0.9em;">
-              API: <a href="/api/auth">Authenticate</a><br>
-              Health: <a href="/health">/health</a>
-            </p>
-          </div>
-        </body>
-      </html>
-    `);
-  });
-}
+/**
+ * ========================================
+ * VIRTUAL TRY-ON ENDPOINTS (Must be BEFORE static middleware!)
+ * ========================================
+ */
 
 /**
  * App Proxy: Virtual Try-On (using existing generateWithLeonardo)
@@ -861,6 +794,85 @@ app.get('/apps/ai-tryon', (req, res) => {
 app.get('/apps/ai-tryon/docs', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'virtual-tryon-widget.html'));
 });
+
+/**
+ * ========================================
+ * STATIC FILES & FRONTEND (Must be LAST!)
+ * ========================================
+ */
+
+// Serve static frontend files if they exist
+const STATIC_PATH = join(__dirname, "frontend", "dist");
+console.log(`🔍 Looking for frontend at: ${STATIC_PATH}`);
+console.log(`📂 Frontend exists: ${existsSync(STATIC_PATH)}`);
+
+if (existsSync(STATIC_PATH)) {
+  console.log(`✅ Serving static files from: ${STATIC_PATH}`);
+  app.use(serveStatic(STATIC_PATH, { index: false }));
+
+  // Serve the React app for all other routes
+  app.use("/*", async (_req, res, _next) => {
+    const indexPath = join(STATIC_PATH, "index.html");
+    if (existsSync(indexPath)) {
+      return res
+        .status(200)
+        .set("Content-Type", "text/html")
+        .send(readFileSync(indexPath));
+    }
+    res.status(404).send("Frontend not built yet");
+  });
+} else {
+  // Fallback if frontend not built
+  app.get("/*", (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Product List App</title>
+          <style>
+            body { 
+              font-family: system-ui; 
+              display: flex; 
+              justify-content: center; 
+              align-items: center; 
+              height: 100vh; 
+              margin: 0;
+              background: #f5f5f5;
+            }
+            .container {
+              text-align: center;
+              padding: 2rem;
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            h1 { color: #008060; }
+            p { color: #666; }
+            .status { 
+              display: inline-block;
+              padding: 8px 16px;
+              background: #008060;
+              color: white;
+              border-radius: 4px;
+              margin-top: 1rem;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>📦 Product List App</h1>
+            <p>OAuth-enabled Shopify App</p>
+            <div class="status">✓ Server Running with OAuth</div>
+            <p style="margin-top: 2rem; font-size: 0.9em;">
+              API: <a href="/api/auth">Authenticate</a><br>
+              Health: <a href="/health">/health</a>
+            </p>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
