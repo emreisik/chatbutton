@@ -810,11 +810,11 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
 });
 
 /**
- * App Proxy Route Handler
+ * App Proxy Route Handler (GET only - for testing)
  * Shopify App Proxy forwards requests from /apps/ai-tryon/* to this handler
  * This enables virtual try-on widget to work on storefront
  */
-app.use('/apps/ai-tryon', (req, res, next) => {
+app.get('/apps/ai-tryon', (req, res) => {
   // Shopify App Proxy sends these parameters
   const { shop, logged_in_customer_id, timestamp, signature, path_prefix, ...rest } = req.query;
   
