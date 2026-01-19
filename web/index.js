@@ -15,6 +15,8 @@ import {
   uploadImageToShopify,
   uploadBase64ToCloudinary,
 } from "./ai-image-service.js";
+import { generateVirtualTryOn } from "./virtual-tryon-service.js";
+import { createRateLimiter, validateImage } from "./rate-limiter.js";
 
 // Load environment variables
 dotenv.config();
@@ -43,8 +45,68 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    oauth: 'enabled' 
+    oauth: 'enabled',
+    virtualTryOn: 'enabled'
   });
+});
+
+/**
+ * PUBLIC API: Virtual Try-On
+ * Customers can upload their photos and see products on themselves
+ * Rate limited: 5 requests per hour per IP
+ * CORS enabled for Shopify storefront
+ */
+const virtualTryOnRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 requests per hour
+  message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
+});
+
+app.post('/api/public/virtual-try-on', 
+  virtualTryOnRateLimiter,
+  validateImage,
+  async (req, res) => {
+  try {
+    const { customerImage, productImageUrl, productId, productName } = req.body;
+
+    if (!productImageUrl) {
+      return res.status(400).json({
+        error: "Missing product image URL",
+        message: "Ürün resmi bulunamadı"
+      });
+    }
+
+    console.log(`👤 Virtual Try-On request for product: ${productName || productId}`);
+    console.log(`📸 Product image: ${productImageUrl}`);
+    console.log(`🔐 IP: ${req.ip}`);
+
+    // Generate virtual try-on
+    const result = await generateVirtualTryOn(
+      customerImage,
+      productImageUrl,
+      {
+        leonardoModel: "nano-banana-pro",
+        preserveGarment: true, // Keep clothing unchanged
+      }
+    );
+
+    res.json({
+      success: true,
+      generatedImageUrl: result.generatedImageUrl,
+      generationId: result.generationId,
+      message: "✨ İşte sen bu ürünü giyerken! Nasıl göründüğünü gör!",
+      credits: result.creditsUsed
+    });
+
+  } catch (error) {
+    console.error("❌ Virtual Try-On Error:", error.message);
+    
+    res.status(500).json({
+      error: error.message,
+      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin.",
+      details: process.env.NODE_ENV === 'development' ? error.details : undefined
+    });
+  }
 });
 
 /**
@@ -673,9 +735,110 @@ if (existsSync(STATIC_PATH)) {
   });
 }
 
+/**
+ * App Proxy Route: Virtual Try-On Generation Endpoint
+ * This is the actual endpoint that handles the POST request from the widget
+ * Shopify App Proxy: yourstore.com/apps/ai-tryon/virtual-try-on → here
+ */
+app.post('/apps/ai-tryon/virtual-try-on',
+  virtualTryOnRateLimiter,
+  validateImage,
+  async (req, res) => {
+  try {
+    const { customerImage, productImageUrl, productId, productName } = req.body;
+
+    if (!productImageUrl) {
+      return res.status(400).json({
+        error: "Missing product image URL",
+        message: "Ürün resmi bulunamadı"
+      });
+    }
+
+    console.log(`👤 Virtual Try-On request (App Proxy) for: ${productName || productId}`);
+    console.log(`📸 Product: ${productImageUrl}`);
+    console.log(`🔐 IP: ${req.ip}`);
+
+    // Generate virtual try-on
+    const result = await generateVirtualTryOn(
+      customerImage,
+      productImageUrl,
+      {
+        leonardoModel: "nano-banana-pro",
+        preserveGarment: true,
+      }
+    );
+
+    res.json({
+      success: true,
+      generatedImageUrl: result.generatedImageUrl,
+      generationId: result.generationId,
+      message: "✨ İşte sen bu ürünü giyerken!",
+      credits: result.creditsUsed
+    });
+
+  } catch (error) {
+    console.error("❌ Virtual Try-On Error (App Proxy):", error.message);
+    
+    res.status(500).json({
+      error: error.message,
+      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin.",
+      details: process.env.NODE_ENV === 'development' ? error.details : undefined
+    });
+  }
+});
+
+/**
+ * App Proxy Route Handler
+ * Shopify App Proxy forwards requests from /apps/ai-tryon/* to this handler
+ * This enables virtual try-on widget to work on storefront
+ */
+app.use('/apps/ai-tryon', (req, res, next) => {
+  // Shopify App Proxy sends these parameters
+  const { shop, logged_in_customer_id, timestamp, signature, path_prefix, ...rest } = req.query;
+  
+  console.log(`📱 App Proxy request from shop: ${shop}`);
+  console.log(`🔐 Logged in customer: ${logged_in_customer_id || 'guest'}`);
+  
+  // Serve widget HTML for root path
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>AI Virtual Try-On</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+          text-align: center;
+          padding: 40px;
+          color: #333;
+        }
+        h1 { color: #667eea; }
+        .status { background: #e8f5e9; padding: 16px; border-radius: 8px; display: inline-block; margin: 20px; }
+      </style>
+    </head>
+    <body>
+      <h1>✨ AI Virtual Try-On</h1>
+      <div class="status">
+        ✓ Service is active and ready!<br>
+        <small>Shop: ${shop || 'unknown'}</small>
+      </div>
+      <p>This endpoint is active. Integrate the widget into your product pages.</p>
+      <p><a href="/apps/ai-tryon/docs">View Documentation</a></p>
+    </body>
+    </html>
+  `);
+});
+
+// Serve widget documentation
+app.get('/apps/ai-tryon/docs', (req, res) => {
+  res.sendFile(join(__dirname, 'public', 'virtual-tryon-widget.html'));
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🔐 OAuth enabled`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📍 Host: ${shopify.config.hostScheme}://${shopify.config.hostName}`);
+  console.log(`👤 Virtual Try-On: /api/public/virtual-try-on`);
+  console.log(`📱 App Proxy: /apps/ai-tryon`);
 });
