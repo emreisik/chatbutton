@@ -178,8 +178,8 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       prompt = customPrompt;
       console.log(`✏️ Using custom prompt from user`);
     } else {
-      prompt = `Replace the woman's face with a different female model. Keep everything else identical: same outfit, same pose, same lighting, same background. Professional fashion photography, photorealistic.`;
-      console.log(`✏️ Using minimal prompt for face-only change (init_strength controls garment preservation)`);
+      prompt = `Professional fashion model wearing the exact same outfit. Same pose, same studio lighting, same background. High-end fashion photography, 8K, photorealistic.`;
+      console.log(`✏️ Using clean default prompt`);
     }
 
     const LEONARDO_MAX_PROMPT = 1500;
@@ -188,7 +188,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       prompt = prompt.substring(0, LEONARDO_MAX_PROMPT - 3) + '...';
     }
 
-    const negativePrompt = customNegativePrompt || `different outfit, changed clothing, modified garments, different pose, different background, different lighting, beauty filter, smooth skin, cartoon, illustration, 3d render, painting, deformed, distorted, blurry, low quality, unrealistic`;
+    const negativePrompt = customNegativePrompt || `ugly, deformed, noisy, blurry, low quality, distorted, out of focus, bad anatomy, extra limbs, poorly drawn face, poorly drawn hands, missing fingers, amateur, low-res`;
 
     console.log(`🎨 Generating with Leonardo AI (img2img)...`);
     console.log(`📝 Prompt length: ${prompt.length}/${LEONARDO_MAX_PROMPT} chars`);
@@ -265,23 +265,23 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       height: height,
       num_images: 1,
       init_image_id: imageId,
-      init_strength: 0.15,
-      guidance_scale: 7.5,
-      seed: 12345,
-      alchemy: false,
-      photoReal: false,
-      promptMagic: false,
+      init_strength: 0.35,
+      guidance_scale: 10,
+      alchemy: true,
+      photoReal: true,
+      photoRealVersion: "v2",
+      promptMagic: true,
+      promptMagicVersion: "v3",
+      num_inference_steps: 50,
       public: false,
-      num_inference_steps: 40,
     };
 
-    console.log(`🔒 FACE-ONLY CHANGE MODE (Garment Preservation):`);
-    console.log(`   - init_strength: 0.15 (ULTRA LOW - only face changes, garments locked)`);
-    console.log(`   - guidance_scale: 7.5 (BALANCED - natural face replacement)`);
-
+    console.log(`🔒 HIGH-QUALITY MODE (PhotoReal v2 + Alchemy):`);
+    console.log(`   - init_strength: 0.35 (Face changes, garments preserved)`);
+    console.log(`   - guidance_scale: 10 (Strong prompt adherence)`);
+    console.log(`   - photoReal: v2, alchemy: true, promptMagic: v3`);
     const generationResponse = await axios.post(
       `${LEONARDO_API_URL}/generations`,
-      requestBody,
       {
         headers: {
           Authorization: `Bearer ${LEONARDO_API_KEY}`,
