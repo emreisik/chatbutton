@@ -265,7 +265,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       height: height,
       num_images: 1,
       init_image_id: imageId,
-      init_strength: 0.35,
+      init_strength: strength, // DYNAMIC: lower = preserve more of original
       guidance_scale: 10,
       alchemy: true,
       photoReal: true,
@@ -277,7 +277,7 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     };
 
     console.log(`🔒 HIGH-QUALITY MODE (PhotoReal v2 + Alchemy):`);
-    console.log(`   - init_strength: 0.35 (Face changes, garments preserved)`);
+    console.log(`   - init_strength: ${strength} (Lower = preserve original more)`);
     console.log(`   - guidance_scale: 10 (Strong prompt adherence)`);
     console.log(`   - photoReal: v2, alchemy: true, promptMagic: v3`);
     const generationResponse = await axios.post(
