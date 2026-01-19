@@ -15,8 +15,9 @@ import {
   uploadImageToShopify,
   uploadBase64ToCloudinary,
 } from "./ai-image-service.js";
-import { generateVirtualTryOn } from "./virtual-tryon-service.js";
-import { createRateLimiter, validateImage } from "./rate-limiter.js";
+// TEMPORARY: Virtual Try-On disabled for debugging deployment
+// import { generateVirtualTryOn } from "./virtual-tryon-service.js";
+// import { createRateLimiter, validateImage } from "./rate-limiter.js";
 
 // Load environment variables
 dotenv.config();
@@ -46,19 +47,18 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     oauth: 'enabled',
-    virtualTryOn: 'enabled'
+    virtualTryOn: 'temporarily_disabled' // Debugging deployment issue
   });
 });
 
 /**
- * PUBLIC API: Virtual Try-On
- * Customers can upload their photos and see products on themselves
- * Rate limited: 5 requests per hour per IP
- * CORS enabled for Shopify storefront
+ * TEMPORARY: Virtual Try-On endpoints disabled for debugging deployment
+ * Will be re-enabled after fixing Railway deployment issue
  */
+/*
 const virtualTryOnRateLimiter = createRateLimiter({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 requests per hour
+  windowMs: 60 * 60 * 1000,
+  max: 5,
   message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
 });
 
@@ -80,13 +80,12 @@ app.post('/api/public/virtual-try-on',
     console.log(`📸 Product image: ${productImageUrl}`);
     console.log(`🔐 IP: ${req.ip}`);
 
-    // Generate virtual try-on
     const result = await generateVirtualTryOn(
       customerImage,
       productImageUrl,
       {
         leonardoModel: "nano-banana-pro",
-        preserveGarment: true, // Keep clothing unchanged
+        preserveGarment: true,
       }
     );
 
@@ -94,7 +93,7 @@ app.post('/api/public/virtual-try-on',
       success: true,
       generatedImageUrl: result.generatedImageUrl,
       generationId: result.generationId,
-      message: "✨ İşte sen bu ürünü giyerken! Nasıl göründüğünü gör!",
+      message: "✨ İşte sen bu ürünü giyerken!",
       credits: result.creditsUsed
     });
 
@@ -108,6 +107,7 @@ app.post('/api/public/virtual-try-on',
     });
   }
 });
+*/
 
 /**
  * Get session from App Bridge token OR cookie
@@ -736,10 +736,9 @@ if (existsSync(STATIC_PATH)) {
 }
 
 /**
- * App Proxy Route: Virtual Try-On Generation Endpoint
- * This is the actual endpoint that handles the POST request from the widget
- * Shopify App Proxy: yourstore.com/apps/ai-tryon/virtual-try-on → here
+ * TEMPORARY: App Proxy Virtual Try-On endpoint disabled for debugging
  */
+/*
 app.post('/apps/ai-tryon/virtual-try-on',
   virtualTryOnRateLimiter,
   validateImage,
@@ -758,7 +757,6 @@ app.post('/apps/ai-tryon/virtual-try-on',
     console.log(`📸 Product: ${productImageUrl}`);
     console.log(`🔐 IP: ${req.ip}`);
 
-    // Generate virtual try-on
     const result = await generateVirtualTryOn(
       customerImage,
       productImageUrl,
@@ -786,6 +784,7 @@ app.post('/apps/ai-tryon/virtual-try-on',
     });
   }
 });
+*/
 
 /**
  * App Proxy Route Handler
@@ -839,6 +838,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 OAuth enabled`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📍 Host: ${shopify.config.hostScheme}://${shopify.config.hostName}`);
-  console.log(`👤 Virtual Try-On: /api/public/virtual-try-on`);
-  console.log(`📱 App Proxy: /apps/ai-tryon`);
+  console.log(`⚠️  Virtual Try-On: TEMPORARILY DISABLED (debugging deployment)`);
+  console.log(`📱 App Proxy: /apps/ai-tryon (info only)`);
 });
