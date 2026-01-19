@@ -31,7 +31,9 @@ const generationJobs = new Map();
 
 // Middleware
 app.use(cookieParser());
-app.use(express.json());
+// Increase body size limit for Virtual Try-On image uploads (Base64 encoded images can be large)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 console.log("🚀 Starting Product List App with OAuth...");
 
