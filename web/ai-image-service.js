@@ -1,6 +1,18 @@
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import FormData from "form-data";
+import sharp from "sharp";
+import * as faceapi from "@vladmandic/face-api";
+import { Canvas, Image, ImageData } from "canvas";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Setup for face-api (ES modules compatibility)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Monkey-patch face-api to use node-canvas
+faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
 const LEONARDO_API_KEY = process.env.LEONARDO_API_KEY;
 
@@ -547,6 +559,417 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
   }
 }
 
+/**
+ * ============================================================================
+ * CANVAS INPAINTING - Face-only swap with mask (100% garment preservation)
+ * ============================================================================
+ */
+
+// Face detection models initialization (lazy load)
+let faceDetectionModelsLoaded = false;
+
+async function loadFaceDetectionModels() {
+  if (faceDetectionModelsLoaded) return;
+  
+  const modelsPath = join(__dirname, "models");
+  console.log(`📦 Loading face detection models from: ${modelsPath}`);
+  
+  await Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromDisk(modelsPath),
+    faceapi.nets.faceLandmark68Net.loadFromDisk(modelsPath),
+  ]);
+  
+  faceDetectionModelsLoaded = true;
+  console.log(`✅ Face detection models loaded`);
+}
+
+/**
+ * Parse fields from Leonardo API (sometimes JSON string, sometimes object)
+ */
+function parseFields(fieldsStr) {
+  if (!fieldsStr) return {};
+  try {
+    return typeof fieldsStr === "string" ? JSON.parse(fieldsStr) : fieldsStr;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Upload image to presigned S3 URL (no Authorization header!)
+ */
+async function uploadToPresignedUrl({ url, fields, imageBuffer, mimeType, filename }) {
+  const formData = new FormData();
+
+  // Add all S3 fields FIRST (critical order for AWS S3!)
+  if (fields && typeof fields === "object") {
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, value);
+    }
+  }
+
+  // Add file LAST
+  formData.append("file", imageBuffer, {
+    filename: filename,
+    contentType: mimeType,
+    knownLength: imageBuffer.length,
+  });
+
+  // CRITICAL: Do NOT send Authorization header to presigned URL!
+  const uploadResult = await axios.post(url, formData, {
+    headers: {
+      ...formData.getHeaders(),
+    },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  });
+
+  // 204 is expected success for S3
+  if (![200, 201, 204].includes(uploadResult.status)) {
+    throw new Error(`S3 upload failed: HTTP ${uploadResult.status}`);
+  }
+
+  return uploadResult;
+}
+
+/**
+ * Generate face mask for inpainting
+ * White (255) = face area to change
+ * Black (0) = everything else to preserve (garments, background, etc.)
+ */
+async function generateFaceMask(imageBuffer, options = {}) {
+  const {
+    includeFace = true,
+    includeHair = false, // Set to true if you want hair to change too
+    dilationPixels = 4, // Expand mask to avoid edge artifacts
+    featherPixels = 10, // Blur mask edges for natural blending
+  } = options;
+
+  try {
+    // Load face detection models
+    await loadFaceDetectionModels();
+
+    // Load image with sharp
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    const { width, height } = metadata;
+
+    // Convert to canvas for face-api
+    const imageData = await image.raw().toBuffer();
+    const canvas = new Canvas(width, height);
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx.createImageData(width, height);
+    imgData.data.set(imageData);
+    ctx.putImageData(imgData, 0, 0);
+
+    // Detect faces
+    console.log(`🔍 Detecting faces in ${width}x${height} image...`);
+    const detections = await faceapi
+      .detectAllFaces(canvas, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks();
+
+    if (!detections || detections.length === 0) {
+      throw new Error("No faces detected in image. Cannot create mask.");
+    }
+
+    console.log(`✅ Found ${detections.length} face(s)`);
+
+    // Use the first (largest) face
+    const detection = detections[0];
+    const box = detection.detection.box;
+    const landmarks = detection.landmarks;
+
+    // Create mask (black background)
+    const maskCanvas = new Canvas(width, height);
+    const maskCtx = maskCanvas.getContext("2d");
+    maskCtx.fillStyle = "black";
+    maskCtx.fillRect(0, 0, width, height);
+
+    // Draw white ellipse for face
+    if (includeFace) {
+      maskCtx.fillStyle = "white";
+      maskCtx.beginPath();
+      
+      // Get face oval points from landmarks
+      const jawOutline = landmarks.getJawOutline();
+      const leftEyebrowTop = landmarks.getLeftEyeBrow()[2];
+      const rightEyebrowTop = landmarks.getRightEyeBrow()[2];
+      
+      // Calculate face oval dimensions (with dilation)
+      const faceWidth = box.width + dilationPixels * 2;
+      const faceHeight = box.height + dilationPixels * 2;
+      const faceCenterX = box.x + box.width / 2;
+      const faceCenterY = box.y + box.height / 2;
+
+      // Draw ellipse for face
+      maskCtx.ellipse(
+        faceCenterX,
+        faceCenterY,
+        faceWidth / 2,
+        faceHeight / 2,
+        0,
+        0,
+        Math.PI * 2
+      );
+      maskCtx.fill();
+
+      console.log(`✅ Face mask created: ${faceWidth}x${faceHeight} at (${faceCenterX}, ${faceCenterY})`);
+    }
+
+    // Add hair area if requested
+    if (includeHair) {
+      // Extend mask upwards for hair (simple heuristic)
+      const hairHeight = box.height * 0.6;
+      maskCtx.fillStyle = "white";
+      maskCtx.beginPath();
+      maskCtx.ellipse(
+        box.x + box.width / 2,
+        box.y - hairHeight / 2,
+        box.width / 2 + dilationPixels,
+        hairHeight,
+        0,
+        0,
+        Math.PI * 2
+      );
+      maskCtx.fill();
+      console.log(`✅ Hair area added to mask`);
+    }
+
+    // Convert canvas to buffer
+    let maskBuffer = maskCanvas.toBuffer("image/png");
+
+    // Apply feathering (Gaussian blur) to mask edges
+    if (featherPixels > 0) {
+      maskBuffer = await sharp(maskBuffer)
+        .blur(featherPixels / 2)
+        .toBuffer();
+      console.log(`✅ Mask feathered with ${featherPixels}px blur`);
+    }
+
+    return {
+      success: true,
+      maskBuffer,
+      width,
+      height,
+      faceDetected: true,
+      faceCount: detections.length,
+    };
+
+  } catch (error) {
+    console.error("❌ Face mask generation error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Leonardo Canvas Inpainting - Face swap with mask
+ * 100% garment preservation using white mask on face only
+ */
+export async function generateWithCanvasInpainting(imageUrl, options = {}) {
+  if (!LEONARDO_API_KEY) {
+    throw new Error("Leonardo API key not configured.");
+  }
+
+  try {
+    const {
+      leonardoModel = DEFAULT_LEONARDO_MODEL,
+      customPrompt = null,
+      customNegativePrompt = null,
+      includeHair = false, // Change hair too?
+      initStrength = 0.15, // Lower = more preservation (UI shows inverse)
+      guidanceScale = 7.0,
+    } = options;
+
+    const selectedModel = LEONARDO_MODELS[leonardoModel] || LEONARDO_MODELS[DEFAULT_LEONARDO_MODEL];
+    const modelId = selectedModel.id;
+
+    console.log(`🎭 Canvas Inpainting with ${selectedModel.name}`);
+    console.log(`🎨 init_strength: ${initStrength} (lower = more preservation)`);
+
+    // Step 1: Download original image
+    console.log(`📥 Step 1/6: Downloading init image...`);
+    const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    const imageBuffer = Buffer.from(imageResponse.data);
+
+    // Step 2: Generate face mask
+    console.log(`🎭 Step 2/6: Generating face mask (face-only, garments preserved)...`);
+    const maskResult = await generateFaceMask(imageBuffer, {
+      includeFace: true,
+      includeHair: includeHair,
+      dilationPixels: 4,
+      featherPixels: 10,
+    });
+
+    const maskBuffer = maskResult.maskBuffer;
+    console.log(`✅ Mask generated: ${maskResult.width}x${maskResult.height}, ${maskResult.faceCount} face(s)`);
+
+    // Step 3: Request presigned URLs for init + mask upload
+    console.log(`📤 Step 3/6: Requesting presigned URLs...`);
+    const presignResponse = await axios.post(
+      `${LEONARDO_API_URL}/canvas-init-image`,
+      {
+        initExtension: "jpg",
+        maskExtension: "png",
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const uploadData = presignResponse.data.uploadCanvasInitImage;
+    const {
+      initUrl,
+      initFields,
+      initImageId,
+      maskUrl,
+      maskFields,
+      maskImageId,
+    } = {
+      initUrl: uploadData.initUrl,
+      initFields: parseFields(uploadData.initFields),
+      initImageId: uploadData.initImageId,
+      maskUrl: uploadData.maskUrl,
+      maskFields: parseFields(uploadData.maskFields),
+      maskImageId: uploadData.maskImageId,
+    };
+
+    console.log(`✅ Presigned URLs received`);
+    console.log(`   Init ID: ${initImageId}`);
+    console.log(`   Mask ID: ${maskImageId}`);
+
+    // Step 4: Upload init image to S3
+    console.log(`📤 Step 4/6: Uploading init image to S3...`);
+    await uploadToPresignedUrl({
+      url: initUrl,
+      fields: initFields,
+      imageBuffer: imageBuffer,
+      mimeType: "image/jpeg",
+      filename: "init.jpg",
+    });
+    console.log(`✅ Init image uploaded`);
+
+    // Step 5: Upload mask image to S3
+    console.log(`📤 Step 5/6: Uploading mask image to S3...`);
+    await uploadToPresignedUrl({
+      url: maskUrl,
+      fields: maskFields,
+      imageBuffer: maskBuffer,
+      mimeType: "image/png",
+      filename: "mask.png",
+    });
+    console.log(`✅ Mask image uploaded`);
+
+    // Step 6: Create Canvas Inpainting generation
+    console.log(`🎨 Step 6/6: Starting Canvas Inpainting generation...`);
+
+    const prompt = customPrompt || 
+      "realistic fashion model face, natural skin texture, professional studio photography, same pose, same lighting, keep clothing unchanged";
+
+    const negativePrompt = customNegativePrompt ||
+      "changed outfit, altered jacket, changed skirt, changed waistband text, changed logo, different pose, different body shape, artifacts, distorted hands, beauty filter";
+
+    const requestBody = {
+      prompt: prompt,
+      negative_prompt: negativePrompt,
+      canvasRequest: true,
+      canvasRequestType: "INPAINT",
+      modelId: modelId,
+      canvasInitId: initImageId,
+      canvasMaskId: maskImageId,
+      num_images: 1,
+      guidance_scale: guidanceScale,
+      init_strength: initStrength, // KEY: Low value = high preservation
+      public: false,
+    };
+
+    console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+    console.log(`🚫 Negative: ${negativePrompt.substring(0, 100)}...`);
+
+    const generationResponse = await axios.post(
+      `${LEONARDO_API_URL}/generations`,
+      requestBody,
+      {
+        headers: {
+          Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const generationId = 
+      generationResponse.data?.sdGenerationJob?.generationId ||
+      generationResponse.data?.generationId;
+
+    if (!generationId) {
+      throw new Error("No generation ID returned from Leonardo API");
+    }
+
+    console.log(`🔄 Generation ID: ${generationId}`);
+
+    // Step 7: Poll for completion
+    console.log(`⏳ Polling for completion...`);
+    let completed = false;
+    let attempts = 0;
+    let imageResult = null;
+
+    while (!completed && attempts < 60) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const statusResponse = await axios.get(
+        `${LEONARDO_API_URL}/generations/${generationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${LEONARDO_API_KEY}`,
+          },
+        }
+      );
+
+      const generation = statusResponse.data.generations_by_pk;
+
+      if (generation.status === "COMPLETE") {
+        completed = true;
+        imageResult = generation.generated_images[0].url;
+        console.log(`✅ Canvas Inpainting complete!`);
+      } else if (generation.status === "FAILED") {
+        throw new Error("Leonardo Canvas Inpainting failed");
+      } else {
+        console.log(`⏳ Status: ${generation.status} (attempt ${attempts + 1}/60)`);
+      }
+
+      attempts++;
+    }
+
+    if (!imageResult) {
+      throw new Error("Canvas Inpainting timeout after 3 minutes");
+    }
+
+    console.log(`🖼️ Result: ${imageResult}`);
+
+    return {
+      success: true,
+      imageGenerated: true,
+      imageUrl: imageResult,
+      model: `leonardo-canvas-${leonardoModel}`,
+      modelName: selectedModel.name,
+      creditsUsed: selectedModel.baseCredits,
+      method: "canvas-inpainting",
+      prompt: prompt,
+      initStrength: initStrength,
+      faceDetected: true,
+      maskGenerated: true,
+    };
+
+  } catch (error) {
+    console.error("❌ Canvas Inpainting Error:", error.message);
+    console.error("❌ Details:", error.response?.data);
+    throw error;
+  }
+}
+
 console.log("🎨 AI Image Service initialized");
 console.log(`🎨 Leonardo AI: ${LEONARDO_API_KEY ? '✅ Configured' : '❌ Not configured'}`);
 console.log(`🎨 Available Leonardo Models: ${Object.keys(LEONARDO_MODELS).length} models`);
+console.log(`🎭 Canvas Inpainting: ✅ Available (face-only swap, 100% garment preservation)`);
