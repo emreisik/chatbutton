@@ -101,14 +101,18 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
 
     console.log(`👤 Virtual Try-On: ${productName || 'Unknown'} (IP: ${ip})`);
 
-    // Use existing generateWithLeonardo!
+    // FACE SWAP MODE: Replace only the model's face, keep everything else identical
+    console.log('🎭 Face Swap Mode: Replacing face only, preserving clothing and pose');
+    
     const result = await generateWithLeonardo(
       productImageUrl,
       productName || "Virtual Try-On",
       null,
       {
         leonardoModel: "nano-banana-pro",
-        customPrompt: "Professional fashion model wearing the exact same outfit. Same pose, same lighting, keep clothing unchanged. High-end fashion photography, 8K, photorealistic."
+        strength: 0.2, // VERY LOW: Preserve original image (clothing, pose, lighting)
+        customPrompt: "Face swap only: Replace the face in this image while keeping everything else EXACTLY the same. Same clothing, same pose, same body, same background, same lighting. Only the facial features should change. Photorealistic face replacement, seamless blend, natural skin tones, professional retouching.",
+        customNegativePrompt: "different clothing, changed outfit, new clothes, altered garments, different accessories, modified style, changed background, different pose, body modifications, new setting, altered composition"
       }
     );
 
@@ -719,14 +723,18 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
 
     console.log(`👤 Virtual Try-On (App Proxy): ${productName || 'Unknown'} (IP: ${ip})`);
 
-    // Use existing generateWithLeonardo!
+    // FACE SWAP MODE: Replace only the model's face, keep everything else identical
+    console.log('🎭 Face Swap Mode: Replacing face only, preserving clothing and pose');
+    
     const result = await generateWithLeonardo(
       productImageUrl,
       productName || "Virtual Try-On",
       null,
       {
         leonardoModel: "nano-banana-pro",
-        customPrompt: "Professional fashion model wearing the exact same outfit. Same pose, same lighting, keep clothing unchanged. High-end fashion photography, 8K, photorealistic."
+        strength: 0.2, // VERY LOW: Preserve original image (clothing, pose, lighting)
+        customPrompt: "Face swap only: Replace the face in this image while keeping everything else EXACTLY the same. Same clothing, same pose, same body, same background, same lighting. Only the facial features should change. Photorealistic face replacement, seamless blend, natural skin tones, professional retouching.",
+        customNegativePrompt: "different clothing, changed outfit, new clothes, altered garments, different accessories, modified style, changed background, different pose, body modifications, new setting, altered composition"
       }
     );
 
