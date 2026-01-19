@@ -300,22 +300,37 @@
 
   // Get product image from Shopify page
   function getProductImageUrl() {
-    // Try to find product image on page
-    const productImage = document.querySelector('.product-single__photo img') ||
-                        document.querySelector('.product__photo img') ||
-                        document.querySelector('[data-product-image]') ||
-                        document.querySelector('.product-image img');
+    // Try multiple selectors (Shopify themes vary)
+    const selectors = [
+      'img[src*="/products/"]',  // Most reliable - URL contains /products/
+      '.product__photo img',
+      '.product-single__photo img',
+      '.product__media img',
+      '.product-media--first img',
+      '.featured-product__image img',
+      '[data-product-image]',
+      '.product-image img',
+      'img[alt*="product"]',
+      '#MainProduct img',
+      '.main-product img'
+    ];
     
-    if (productImage) {
-      return productImage.src;
+    for (const selector of selectors) {
+      const productImage = document.querySelector(selector);
+      if (productImage && productImage.src) {
+        console.log('✅ Found product image using:', selector);
+        return productImage.src;
+      }
     }
 
     // Fallback to meta tag
     const metaImage = document.querySelector('meta[property="og:image"]');
-    if (metaImage) {
+    if (metaImage && metaImage.content) {
+      console.log('✅ Found product image using og:image meta tag');
       return metaImage.content;
     }
 
+    console.error('❌ Product image not found on page!');
     return null;
   }
 
