@@ -739,7 +739,9 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
 
   } catch (error) {
     console.error("❌ Virtual Try-On Error (App Proxy):", error.message);
-    res.status(500).json({
+    // Return 200 OK even on errors (Shopify App Proxy converts 5xx to HTML)
+    res.status(200).json({
+      success: false,
       error: error.message,
       message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin."
     });

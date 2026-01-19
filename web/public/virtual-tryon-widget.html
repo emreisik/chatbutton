@@ -424,7 +424,8 @@
 
       const data = await response.json();
 
-      if (!response.ok) {
+      // Check success field (backend returns 200 OK even on errors for Shopify App Proxy compatibility)
+      if (data.success === false || !data.generatedImageUrl) {
         throw new Error(data.message || 'AI işlemi başarısız oldu');
       }
 
