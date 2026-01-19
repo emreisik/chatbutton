@@ -52,7 +52,20 @@ app.get('/health', (req, res) => {
 });
 
 /**
- * TEMPORARY: Virtual Try-On endpoints disabled for debugging deployment
+ * TEMPORARY: Virtual Try-On stub endpoint (Public API)
+ * Returns "feature disabled" message
+ */
+app.post('/api/public/virtual-try-on', (req, res) => {
+  console.log(`⚠️  Public Virtual Try-On request received but feature is temporarily disabled`);
+  res.status(503).json({
+    error: "Feature temporarily disabled",
+    message: "Virtual Try-On özelliği geçici olarak devre dışı. Yakında aktif olacak!",
+    status: "under_maintenance"
+  });
+});
+
+/**
+ * TEMPORARY: Full implementation disabled for debugging deployment
  * Will be re-enabled after fixing Railway deployment issue
  */
 /*
@@ -785,6 +798,19 @@ app.post('/apps/ai-tryon/virtual-try-on',
   }
 });
 */
+
+/**
+ * TEMPORARY: Virtual Try-On stub endpoint
+ * Returns "feature disabled" message until we fix the deployment issue
+ */
+app.post('/apps/ai-tryon/virtual-try-on', (req, res) => {
+  console.log(`⚠️  Virtual Try-On request received but feature is temporarily disabled`);
+  res.status(503).json({
+    error: "Feature temporarily disabled",
+    message: "Virtual Try-On özelliği geçici olarak devre dışı. Yakında aktif olacak!",
+    status: "under_maintenance"
+  });
+});
 
 /**
  * App Proxy Route Handler
