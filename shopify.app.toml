@@ -23,3 +23,8 @@ embedded = false
 [build]
 automatically_update_urls_on_dev = true
 dev_store_url = "web-health-developer.myshopify.com"
+
+[[app_proxy]]
+url = "/apps/ai-tryon"
+subpath = "ai-tryon"
+prefix = "apps"
