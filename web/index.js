@@ -125,8 +125,18 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
         strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
         guidanceScale: 15, // HIGH: Strong prompt adherence
         inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
-        customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
+        customPrompt: `Replace ONLY the woman's face with a different realistic female model.
+ABSOLUTELY DO NOT change the outfit, clothing texture, fabric, stitching, buttons, stripes, folds, wrinkles, seams, cut, fit, or proportions.
+Keep the exact same outfit pixel-perfect, identical clothing at 1:1 scale.
+Same body, same pose, same arms, same hands, same proportions.
+Same studio lighting, same background, same camera angle, same framing.
+
+Only change the FACE and HAIR.
+New face must look like a professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look.
+Hair style may change slightly but must look natural and realistic.
+
+Ultra photorealistic, studio fashion photography, no artifacts, no deformation, no blur.${customerImageUrl ? ` Reference image: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "changed clothes, altered outfit, different fabric, modified vest, changed pants, different stripes, different buttons, different seams, body change, pose change, resized body, extra limbs, distorted hands, face blur, plastic skin, cartoon, ai artifacts",
         customerImageUrl: customerImageUrl,
       }
     );
@@ -762,8 +772,18 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
         strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
         guidanceScale: 15, // HIGH: Strong prompt adherence
         inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
-        customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
+        customPrompt: `Replace ONLY the woman's face with a different realistic female model.
+ABSOLUTELY DO NOT change the outfit, clothing texture, fabric, stitching, buttons, stripes, folds, wrinkles, seams, cut, fit, or proportions.
+Keep the exact same outfit pixel-perfect, identical clothing at 1:1 scale.
+Same body, same pose, same arms, same hands, same proportions.
+Same studio lighting, same background, same camera angle, same framing.
+
+Only change the FACE and HAIR.
+New face must look like a professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look.
+Hair style may change slightly but must look natural and realistic.
+
+Ultra photorealistic, studio fashion photography, no artifacts, no deformation, no blur.${customerImageUrl ? ` Reference image: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "changed clothes, altered outfit, different fabric, modified vest, changed pants, different stripes, different buttons, different seams, body change, pose change, resized body, extra limbs, distorted hands, face blur, plastic skin, cartoon, ai artifacts",
         customerImageUrl: customerImageUrl,
       }
     );
