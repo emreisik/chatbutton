@@ -124,7 +124,7 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
         leonardoModel: "nano-banana-pro",
         strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
         guidanceScale: 15, // HIGH: Strong prompt adherence
-        inferenceSteps: 75, // HIGH: More careful processing
+        inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
         customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
         customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
         customerImageUrl: customerImageUrl,
@@ -761,7 +761,7 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
         leonardoModel: "nano-banana-pro",
         strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
         guidanceScale: 15, // HIGH: Strong prompt adherence
-        inferenceSteps: 75, // HIGH: More careful processing
+        inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
         customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
         customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
         customerImageUrl: customerImageUrl,
