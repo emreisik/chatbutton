@@ -2,8 +2,8 @@ import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import FormData from "form-data";
 import sharp from "sharp";
-// DISABLED: import * as faceapi from "@vladmandic/face-api";
-// DISABLED: import { Canvas, Image, ImageData } from "canvas";
+import * as faceapi from "@vladmandic/face-api";
+import { Canvas, Image, ImageData } from "canvas";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Monkey-patch face-api to use node-canvas
-// DISABLED: faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
+faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
 
 const LEONARDO_API_KEY = process.env.LEONARDO_API_KEY;
 

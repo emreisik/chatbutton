@@ -10,7 +10,8 @@ import { sessionStorage } from "./session-storage.js";
 import { setupAuthRoutes } from "./auth-routes.js";
 import { 
   generateWithLeonardo,
-  generateWithCanvasInpainting,
+  // DISABLED: Canvas Inpainting (native dependencies issue on Railway)
+  // generateWithCanvasInpainting,
   LEONARDO_MODELS, 
   uploadImageToShopify,
   uploadBase64ToCloudinary,
@@ -396,21 +397,14 @@ app.post("/api/products/generate-image", async (req, res) => {
         
         let result;
         
-        if (method === "canvas-inpainting") {
-          // Canvas Inpainting - 100% garment preservation with face mask
-          console.log(`🎭 [${jobId}] Using Canvas Inpainting (face mask)...`);
-          result = await generateWithCanvasInpainting(
-            currentImageUrl,
-            {
-              width: 512,              // User's Canvas setting
-              height: 512,             // User's Canvas setting
-              inpaintStrength: 0.57,   // User's Canvas setting (was 0.15)
-              guidanceScale: 7,        // User's Canvas setting
-              prompt: customPrompt || "Beautiful blonde Turkish woman, professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look",
-              negativePrompt: customNegativePrompt || "changed clothes, altered outfit, different fabric, body change, pose change, face blur, plastic skin, cartoon, ai artifacts",
-            }
-          );
-        } else {
+        // DISABLED: Canvas Inpainting (native dependencies cause Railway deployment failure)
+        // if (method === "canvas-inpainting") {
+        //   console.log(`🎭 [${jobId}] Using Canvas Inpainting (face mask)...`);
+        //   result = await generateWithCanvasInpainting(...);
+        // } else {
+        
+        // ALWAYS use img2img (optimal for garment preservation without native dependencies)
+        {
           // img2img with ULTRA LOW strength + HIGH guidance = Perfect garment preservation
           console.log(`📸 [${jobId}] Using img2img (OPTIMIZED: 0.12 strength, 20 guidance)...`);
           
