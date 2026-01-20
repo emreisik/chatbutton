@@ -31,7 +31,6 @@ const generationJobs = new Map();
 
 // Middleware
 app.use(cookieParser());
-// Increase body size limit for Virtual Try-On image uploads (Base64 encoded images can be large)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -50,112 +49,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-/**
- * Simple rate limiter for Virtual Try-On (in-memory)
- */
-const virtualTryOnRequests = new Map();
-function checkRateLimit(ip) {
-  const now = Date.now();
-  const key = `vto_${ip}`;
-  const requests = virtualTryOnRequests.get(key) || [];
-  
-  // Remove old requests (older than 1 hour)
-  const recentRequests = requests.filter(time => now - time < 60 * 60 * 1000);
-  
-  if (recentRequests.length >= 5) {
-    return { allowed: false, remaining: 0 };
-  }
-  
-  recentRequests.push(now);
-  virtualTryOnRequests.set(key, recentRequests);
-  
-  return { allowed: true, remaining: 5 - recentRequests.length };
-}
 
 /**
  * PUBLIC API: Virtual Try-On (using existing generateWithLeonardo)
  * Simple implementation using existing infrastructure
  */
-app.post('/api/public/virtual-try-on', async (req, res) => {
-  try {
-    // Rate limiting
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const rateLimit = checkRateLimit(ip);
-    
-    if (!rateLimit.allowed) {
-      return res.status(429).json({
-        error: "Too many requests",
-        message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
-      });
-    }
-
-    const { customerImage, productImageUrl, productName } = req.body;
-
-    // Basic validation
-    if (!customerImage || !productImageUrl) {
-      return res.status(400).json({
-        error: "Missing required fields",
-        message: "Fotoğraf ve ürün resmi gerekli"
-      });
-    }
-
-    console.log(`👤 Virtual Try-On: ${productName || 'Unknown'} (IP: ${ip})`);
-
-    // VIRTUAL TRY-ON MODE: Replace model, keep clothing identical
-    console.log('👗 Virtual Try-On Mode: ULTRA LOW strength for maximum preservation');
-    
-    // Upload customer image to Cloudinary for reference
-    let customerImageUrl = null;
-    if (customerImage) {
-      try {
-        console.log('📤 Uploading customer image to Cloudinary...');
-        customerImageUrl = await uploadBase64ToCloudinary(customerImage, 'virtual-tryon-customer');
-        console.log('✅ Customer image uploaded:', customerImageUrl);
-      } catch (uploadError) {
-        console.error('⚠️ Customer image upload failed:', uploadError.message);
-      }
-    }
-    
-    const result = await generateWithLeonardo(
-      productImageUrl,
-      productName || "Virtual Try-On",
-      null,
-      {
-        leonardoModel: "nano-banana-pro",
-        strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
-        guidanceScale: 15, // HIGH: Strong prompt adherence
-        inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
-        customPrompt: `Replace ONLY the woman's face with a different realistic female model.
-ABSOLUTELY DO NOT change the outfit, clothing texture, fabric, stitching, buttons, stripes, folds, wrinkles, seams, cut, fit, or proportions.
-Keep the exact same outfit pixel-perfect, identical clothing at 1:1 scale.
-Same body, same pose, same arms, same hands, same proportions.
-Same studio lighting, same background, same camera angle, same framing.
-
-Only change the FACE and HAIR.
-New face must look like a professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look.
-Hair style may change slightly but must look natural and realistic.
-
-Ultra photorealistic, studio fashion photography, no artifacts, no deformation, no blur.${customerImageUrl ? ` Reference image: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "changed clothes, altered outfit, different fabric, modified vest, changed pants, different stripes, different buttons, different seams, body change, pose change, resized body, extra limbs, distorted hands, face blur, plastic skin, cartoon, ai artifacts",
-        customerImageUrl: customerImageUrl,
-      }
-    );
-
-    res.json({
-      success: true,
-      generatedImageUrl: result.imageUrl,
-      message: "✨ İşte sen bu ürünü giyerken!",
-      remaining: rateLimit.remaining
-    });
-
-  } catch (error) {
-    console.error("❌ Virtual Try-On Error:", error.message);
-    res.status(500).json({
-      error: error.message,
-      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin."
-    });
-  }
-});
 
 /**
  * Get session from App Bridge token OR cookie
@@ -712,149 +610,6 @@ app.get("/api/products/:id", async (req, res) => {
 
 /**
  * ========================================
- * VIRTUAL TRY-ON ENDPOINTS (Must be BEFORE static middleware!)
- * ========================================
- */
-
-/**
- * App Proxy: Virtual Try-On (using existing generateWithLeonardo)
- * Widget calls this endpoint via Shopify App Proxy
- */
-app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
-  console.log('🎯 POST /apps/ai-tryon/virtual-try-on HIT!');
-  console.log('📦 Content-Type:', req.headers['content-type']);
-  console.log('📦 Body keys:', Object.keys(req.body || {}));
-  
-  try {
-    // Rate limiting
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const rateLimit = checkRateLimit(ip);
-    
-    if (!rateLimit.allowed) {
-      return res.status(429).json({
-        error: "Too many requests",
-        message: "Çok fazla istek. Lütfen 1 saat sonra tekrar deneyin."
-      });
-    }
-
-    const { customerImage, productImageUrl, productName } = req.body;
-
-    if (!customerImage || !productImageUrl) {
-      return res.status(400).json({
-        error: "Missing required fields",
-        message: "Fotoğraf ve ürün resmi gerekli"
-      });
-    }
-
-    console.log(`👤 Virtual Try-On (App Proxy): ${productName || 'Unknown'} (IP: ${ip})`);
-
-    // VIRTUAL TRY-ON MODE: Replace model, keep clothing identical
-    console.log('👗 Virtual Try-On Mode: Replace model while preserving exact outfit');
-    
-    // Upload customer image to Cloudinary for reference
-    let customerImageUrl = null;
-    if (customerImage) {
-      try {
-        console.log('📤 Uploading customer image to Cloudinary...');
-        customerImageUrl = await uploadBase64ToCloudinary(customerImage, 'virtual-tryon-customer');
-        console.log('✅ Customer image uploaded:', customerImageUrl);
-      } catch (uploadError) {
-        console.error('⚠️ Customer image upload failed:', uploadError.message);
-      }
-    }
-    
-    const result = await generateWithLeonardo(
-      productImageUrl,
-      productName || "Virtual Try-On",
-      null,
-      {
-        leonardoModel: "nano-banana-pro",
-        strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
-        guidanceScale: 15, // HIGH: Strong prompt adherence
-        inferenceSteps: 50, // OPTIMAL: PhotoReal v2 max supported value
-        customPrompt: `Replace ONLY the woman's face with a different realistic female model.
-ABSOLUTELY DO NOT change the outfit, clothing texture, fabric, stitching, buttons, stripes, folds, wrinkles, seams, cut, fit, or proportions.
-Keep the exact same outfit pixel-perfect, identical clothing at 1:1 scale.
-Same body, same pose, same arms, same hands, same proportions.
-Same studio lighting, same background, same camera angle, same framing.
-
-Only change the FACE and HAIR.
-New face must look like a professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look.
-Hair style may change slightly but must look natural and realistic.
-
-Ultra photorealistic, studio fashion photography, no artifacts, no deformation, no blur.${customerImageUrl ? ` Reference image: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "changed clothes, altered outfit, different fabric, modified vest, changed pants, different stripes, different buttons, different seams, body change, pose change, resized body, extra limbs, distorted hands, face blur, plastic skin, cartoon, ai artifacts",
-        customerImageUrl: customerImageUrl,
-      }
-    );
-
-    res.json({
-      success: true,
-      generatedImageUrl: result.imageUrl,
-      message: "✨ İşte sen bu ürünü giyerken!",
-      remaining: rateLimit.remaining
-    });
-
-  } catch (error) {
-    console.error("❌ Virtual Try-On Error (App Proxy):", error.message);
-    // Return 200 OK even on errors (Shopify App Proxy converts 5xx to HTML)
-    res.status(200).json({
-      success: false,
-      error: error.message,
-      message: "AI ile görsel oluşturulamadı. Lütfen tekrar deneyin."
-    });
-  }
-});
-
-/**
- * App Proxy Route Handler (GET only - for testing)
- * Shopify App Proxy forwards requests from /apps/ai-tryon/* to this handler
- * This enables virtual try-on widget to work on storefront
- */
-app.get('/apps/ai-tryon', (req, res) => {
-  console.log('🏠 GET /apps/ai-tryon HIT (root path)');
-  
-  // Shopify App Proxy sends these parameters
-  const { shop, logged_in_customer_id, timestamp, signature, path_prefix, ...rest } = req.query;
-  
-  console.log(`📱 App Proxy request from shop: ${shop}`);
-  console.log(`🔐 Logged in customer: ${logged_in_customer_id || 'guest'}`);
-  
-  // Serve widget HTML for root path
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>AI Virtual Try-On</title>
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-          text-align: center;
-          padding: 40px;
-          color: #333;
-        }
-        h1 { color: #667eea; }
-        .status { background: #e8f5e9; padding: 16px; border-radius: 8px; display: inline-block; margin: 20px; }
-      </style>
-    </head>
-    <body>
-      <h1>✨ AI Virtual Try-On</h1>
-      <div class="status">
-        ✓ Service is active and ready!<br>
-        <small>Shop: ${shop || 'unknown'}</small>
-      </div>
-      <p>This endpoint is active. Integrate the widget into your product pages.</p>
-      <p><a href="/apps/ai-tryon/docs">View Documentation</a></p>
-    </body>
-    </html>
-  `);
-});
-
-// Serve widget documentation
-app.get('/apps/ai-tryon/docs', (req, res) => {
-  res.sendFile(join(__dirname, 'public', 'virtual-tryon-widget.html'));
-});
-
 /**
  * ========================================
  * STATIC FILES & FRONTEND (Must be LAST!)
@@ -939,6 +694,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔐 OAuth enabled`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📍 Host: ${shopify.config.hostScheme}://${shopify.config.hostName}`);
-  console.log(`👤 Virtual Try-On: ✅ ENABLED (using existing Leonardo AI)`);
-  console.log(`📱 App Proxy: /apps/ai-tryon`);
 });
