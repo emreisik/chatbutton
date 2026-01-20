@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-chat-button-frontend",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Admin panel for WhatsApp Chat Button Shopify App",
   "type": "module",
   "scripts": {
