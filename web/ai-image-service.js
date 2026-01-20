@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import FormData from "form-data";
-import sharp from "sharp";
+// DISABLED: import sharp from "sharp";
 // DISABLED: import * as faceapi from "@vladmandic/face-api";
 // DISABLED: import { Canvas, Image, ImageData } from "canvas";
 import { fileURLToPath } from "url";
