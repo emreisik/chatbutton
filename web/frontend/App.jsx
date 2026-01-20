@@ -854,7 +854,7 @@ function App() {
         <Modal
           open={aiModalActive}
           onClose={() => setAiModalActive(false)}
-          title="🎨 AI ile Ürün Fotoğrafı Oluştur"
+          title="🎨 AI ile Ürün Fotoğrafı Oluştur v1.1"
           primaryAction={{
             content: generatingImages ? "Oluşturuluyor..." : "Fotoğraf Oluştur",
             onAction: handleGenerateImages,
