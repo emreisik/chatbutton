@@ -102,7 +102,7 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
     console.log(`👤 Virtual Try-On: ${productName || 'Unknown'} (IP: ${ip})`);
 
     // VIRTUAL TRY-ON MODE: Replace model, keep clothing identical
-    console.log('👗 Virtual Try-On Mode: Replace model while preserving exact outfit');
+    console.log('👗 Virtual Try-On Mode: ULTRA LOW strength for maximum preservation');
     
     // Upload customer image to Cloudinary for reference
     let customerImageUrl = null;
@@ -122,10 +122,12 @@ app.post('/api/public/virtual-try-on', async (req, res) => {
       null,
       {
         leonardoModel: "nano-banana-pro",
-        strength: 0.15, // VERY LOW: Maximum clothing preservation
-        customPrompt: `Full body virtual try-on: The person should wear the EXACT SAME outfit from the original image. Keep every detail of the clothing identical - same colors, same patterns, same style, same fit. Only change the model's face and body to match a different person. The clothing must remain 100% unchanged. Professional fashion photography, studio lighting, photorealistic.${customerImageUrl ? ` Reference person from: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "different clothing, changed outfit, modified garments, altered colors, different patterns, new accessories, clothing variations, outfit changes, style modifications, wardrobe changes",
-        customerImageUrl: customerImageUrl, // Pass customer image URL for potential future use
+        strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
+        guidanceScale: 15, // HIGH: Strong prompt adherence
+        inferenceSteps: 75, // HIGH: More careful processing
+        customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
+        customerImageUrl: customerImageUrl,
       }
     );
 
@@ -757,10 +759,12 @@ app.post('/apps/ai-tryon/virtual-try-on', async (req, res) => {
       null,
       {
         leonardoModel: "nano-banana-pro",
-        strength: 0.15, // VERY LOW: Maximum clothing preservation
-        customPrompt: `Full body virtual try-on: The person should wear the EXACT SAME outfit from the original image. Keep every detail of the clothing identical - same colors, same patterns, same style, same fit. Only change the model's face and body to match a different person. The clothing must remain 100% unchanged. Professional fashion photography, studio lighting, photorealistic.${customerImageUrl ? ` Reference person from: ${customerImageUrl}` : ''}`,
-        customNegativePrompt: "different clothing, changed outfit, modified garments, altered colors, different patterns, new accessories, clothing variations, outfit changes, style modifications, wardrobe changes",
-        customerImageUrl: customerImageUrl, // Pass customer image URL for potential future use
+        strength: 0.08, // ULTRA LOW: Maximum clothing preservation (was 0.15)
+        guidanceScale: 15, // HIGH: Strong prompt adherence
+        inferenceSteps: 75, // HIGH: More careful processing
+        customPrompt: `CRITICAL: ONLY change the model's face. The clothing MUST remain 100% identical: exact same fabric texture, exact same colors, exact same patterns, exact same style, exact same fit, exact same pose, exact same lighting, exact same shadows, exact same background. Everything except the face must stay perfectly unchanged. Hyperrealistic face replacement only. Professional fashion photography.${customerImageUrl ? ` Use face reference from: ${customerImageUrl}` : ''}`,
+        customNegativePrompt: "different clothing, changed outfit, new garments, modified fabric, altered colors, different patterns, clothing variations, style changes, different accessories, pose changes, lighting changes, background changes, composition changes, outfit modifications, garment alterations, texture changes, fabric modifications, color shifts, pattern variations, altered garments, modified clothes, wardrobe changes, fashion changes, outfit variations",
+        customerImageUrl: customerImageUrl,
       }
     );
 

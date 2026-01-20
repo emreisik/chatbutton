@@ -266,19 +266,20 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       num_images: 1,
       init_image_id: imageId,
       init_strength: strength, // DYNAMIC: lower = preserve more of original
-      guidance_scale: 10,
+      guidance_scale: options.guidanceScale || 10,
       alchemy: true,
       photoReal: true,
       photoRealVersion: "v2",
       promptMagic: true,
       promptMagicVersion: "v3",
-      num_inference_steps: 50,
+      num_inference_steps: options.inferenceSteps || 50,
       public: false,
     };
 
     console.log(`🔒 HIGH-QUALITY MODE (PhotoReal v2 + Alchemy):`);
     console.log(`   - init_strength: ${strength} (Lower = preserve original more)`);
-    console.log(`   - guidance_scale: 10 (Strong prompt adherence)`);
+    console.log(`   - guidance_scale: ${options.guidanceScale || 10} (Higher = stronger prompt adherence)`);
+    console.log(`   - num_inference_steps: ${options.inferenceSteps || 50} (Higher = more careful processing)`);
     console.log(`   - photoReal: v2, alchemy: true, promptMagic: v3`);
     const generationResponse = await axios.post(
       `${LEONARDO_API_URL}/generations`,
