@@ -324,8 +324,9 @@ function App() {
             ...product,
             allImages: productDetail.images,
           });
-          totalImagesToProcess += productDetail.images.length;
-          console.log(`📸 ${product.title}: ${productDetail.images.length} görsel bulundu`);
+          // TEST MODE: Only count first image per product
+          totalImagesToProcess += 1; // Was: productDetail.images.length
+          console.log(`📸 ${product.title}: ${productDetail.images.length} görsel bulundu (TEST: sadece ilk görsel işlenecek)`);
         }
       } catch (error) {
         console.error(`❌ Error fetching product details for ${product.title}:`, error);
@@ -334,9 +335,10 @@ function App() {
 
     console.log(`📊 Total images to process: ${totalImagesToProcess}`);
 
-    // Step 2: Generate new images for ALL existing images
+    // Step 2: Generate new images - TEST MODE: Only first image per product
     for (const product of productsWithImages) {
-      for (const image of product.allImages) {
+      // TEST: Only process first image to save credits and time
+      for (const image of product.allImages.slice(0, 1)) {
         try {
           console.log(`🎨 [${totalImagesProcessed + 1}/${totalImagesToProcess}] ${product.title} - Image ${image.id}`);
           
