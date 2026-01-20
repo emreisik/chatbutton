@@ -446,10 +446,10 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
       // CRITICAL PRESERVATION PARAMETERS:
       // Lower init_strength = stronger preservation of original structure
       // For face-only changes: 0.15-0.18 range keeps garments 100% intact
-      init_strength: 0.15, // ULTRA LOW: 0.15 = maximum garment/pose/background preservation, only face changes
+      init_strength: strength, // USE PARAMETER: 0.15 = maximum garment/pose/background preservation, only face changes
       
       // Higher guidance_scale = stronger adherence to prompt (and negative prompt)
-      guidance_scale: 7.5, // BALANCED: 7.5 = natural face change without over-processing
+      guidance_scale: guidanceScale, // USE PARAMETER: 7.5 = natural face change without over-processing
       
       // Fixed seed for consistency
       seed: 12345,
@@ -466,8 +466,8 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
     };
 
     console.log(`🔒 FACE-ONLY CHANGE MODE (Garment Preservation):`);
-    console.log(`   - init_strength: 0.15 (ULTRA LOW - only face changes, garments locked)`);
-    console.log(`   - guidance_scale: 7.5 (BALANCED - natural face replacement)`);
+    console.log(`   - init_strength: ${strength} (USER CONTROLLED - only face changes, garments locked)`);
+    console.log(`   - guidance_scale: ${guidanceScale} (USER CONTROLLED - natural face replacement)`);
     console.log(`   - num_inference_steps: 40 (high quality)`);
     console.log(`   - alchemy: false, photoReal: false, promptMagic: false`);
 
