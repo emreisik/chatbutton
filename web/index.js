@@ -411,18 +411,28 @@ app.post("/api/products/generate-image", async (req, res) => {
             }
           );
         } else {
-          // Standard img2img - faster but less precise preservation
-          console.log(`📸 [${jobId}] Using img2img (standard)...`);
+          // img2img with ULTRA LOW strength + HIGH guidance = Perfect garment preservation
+          console.log(`📸 [${jobId}] Using img2img (OPTIMIZED: 0.12 strength, 20 guidance)...`);
+          
+          // Perfect prompt for garment preservation
+          const perfectPrompt = customPrompt || `Replace ONLY the model's face with a different professional fashion model.
+CRITICAL REQUIREMENT: Keep the EXACT SAME clothing - identical fabric, color, style, cut, sleeves, accessories, belt, buttons, and all garment details.
+Preserve the same body pose, same arm position, same leg position, same background, same lighting, same camera angle.
+ONLY change the face and hairstyle. Everything else must remain pixel-perfect identical.
+Professional fashion photography, natural skin texture, realistic, high-end studio quality.`;
+
+          const perfectNegativePrompt = customNegativePrompt || `different clothing, changed outfit, altered garment, modified sleeves, removed belt, different jacket style, changed pants, new accessories, different fabric, altered color, clothing variations, outfit modifications, changed fit, different cut, modified design, wardrobe changes, fashion alterations, style changes, garment edits, clothing transformations, outfit adjustments, body changes, pose changes, background changes, lighting changes, low quality, blurry, distorted, deformed`;
+
           result = await generateWithLeonardo(
             currentImageUrl,
             productName,
-            null, // No GPT-4 Vision analysis - Leonardo handles it
+            null,
             {
-              // Use default dimensions from ai-image-service.js (848x1264 - Leonardo tested size)
-              // Use default init_strength from ai-image-service.js (0.15 - face-only changes)
               leonardoModel: leonardoModel || "nano-banana-pro",
-              customPrompt: customPrompt, // User's custom prompt
-              customNegativePrompt: customNegativePrompt, // User's custom negative prompt
+              strength: 0.12,           // ULTRA LOW: Maximum garment preservation
+              guidanceScale: 20,        // ULTRA HIGH: Strict prompt adherence
+              customPrompt: perfectPrompt,
+              customNegativePrompt: perfectNegativePrompt,
             }
           );
         }
