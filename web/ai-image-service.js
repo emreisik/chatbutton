@@ -368,11 +368,196 @@ export async function generateWithLeonardo(imageUrl, productName, productAnalysi
  * Requires native dependencies (canvas, sharp, face-api) which cause issues in Railway
  * TODO: Re-enable once Railway build is fixed with proper native dependencies
  */
+/**
+ * Leonardo Canvas Inpainting - Face swap with pixel-perfect garment preservation
+ * Creates a center-area mask (face region) and uses Canvas API
+ * User's manual settings: inpaint_strength=0.57, guidance=7, alchemy=false
+ */
 export async function generateWithCanvasInpainting(imageUrl, options = {}) {
-  throw new Error("Canvas Inpainting is temporarily disabled. Native dependencies (canvas, face-api) need Railway build configuration. Please use img2img method instead.");
+  if (!LEONARDO_API_KEY) {
+    throw new Error("Leonardo API key not configured");
+  }
+
+  try {
+    const {
+      width = 512,
+      height = 512,
+      inpaintStrength = 0.57, // User's Canvas setting
+      guidanceScale = 7,      // User's Canvas setting  
+      prompt = "Beautiful blonde Turkish woman, professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look",
+      negativePrompt = "changed clothes, altered outfit, different fabric, body change, pose change, face blur, plastic skin, cartoon, ai artifacts",
+    } = options;
+
+    console.log("🎨 Canvas Inpainting: Creating center-area face mask...");
+    
+    // Create simple SVG mask (white ellipse = face area, black background = preserve)
+    const maskSvg = createCenterMask(width, height, 0.6);
+    
+    // Convert SVG to PNG via data URL
+    const maskDataUrl = `data:image/svg+xml;base64,${Buffer.from(maskSvg).toString('base64')}`;
+    
+    // Upload mask to Cloudinary
+    console.log("📤 Uploading mask to Cloudinary...");
+    const maskUpload = await uploadBase64ToCloudinary(Buffer.from(maskSvg).toString('base64'), `mask-${Date.now()}`);
+    
+    if (!maskUpload.success) {
+      throw new Error("Mask upload failed: " + (maskUpload.message || maskUpload.error));
+    }
+    
+    const maskUrl = maskUpload.url;
+    console.log(`✅ Mask uploaded: ${maskUrl}`);
+
+    // Step 1: Upload init image to Canvas
+    console.log("📤 Step 1/5: Uploading init image to Leonardo Canvas...");
+    const canvasInitResponse = await axios.post(
+      `${LEONARDO_API_URL}/canvas-init-image`,
+      { imageUrl: imageUrl },
+      {
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: `Bearer ${LEONARDO_API_KEY}`,
+        },
+      }
+    );
+
+    const initImageId = canvasInitResponse.data?.uploadCanvasInitImage?.id;
+    if (!initImageId) {
+      throw new Error("Failed to upload canvas init image");
+    }
+    console.log(`✅ Canvas init image ID: ${initImageId}`);
+
+    // Step 2: Upload mask
+    console.log("📤 Step 2/5: Uploading mask to Leonardo...");
+    const maskResponse = await axios.post(
+      `${LEONARDO_API_URL}/canvas-init-image`,
+      { imageUrl: maskUrl },
+      {
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: `Bearer ${LEONARDO_API_KEY}`,
+        },
+      }
+    );
+
+    const maskId = maskResponse.data?.uploadCanvasInitImage?.id;
+    if (!maskId) {
+      throw new Error("Failed to upload mask");
+    }
+    console.log(`✅ Mask ID: ${maskId}`);
+
+    // Step 3: Generate with Canvas Inpainting
+    console.log("🎨 Step 3/5: Starting Canvas Inpainting generation...");
+    const generationBody = {
+      prompt: prompt,
+      negative_prompt: negativePrompt,
+      init_image_id: initImageId,
+      mask_id: maskId,
+      init_strength: inpaintStrength,
+      guidance_scale: guidanceScale,
+      width: width,
+      height: height,
+      num_images: 1,
+      alchemy: false, // User's Canvas setting
+      public: false,
+    };
+
+    console.log("🔒 CANVAS INPAINTING SETTINGS (User's manual values):");
+    console.log(`   - init_strength: ${inpaintStrength}`);
+    console.log(`   - guidance_scale: ${guidanceScale}`);
+    console.log(`   - alchemy: false`);
+    console.log(`   - mask: center ellipse (face region)`);
+
+    const generationResponse = await axios.post(
+      `${LEONARDO_API_URL}/generations`,
+      generationBody,
+      {
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+          authorization: `Bearer ${LEONARDO_API_KEY}`,
+        },
+      }
+    );
+
+    const generationId = generationResponse.data?.sdGenerationJob?.generationId;
+    if (!generationId) {
+      throw new Error("Failed to start Canvas generation");
+    }
+    console.log(`✅ Generation ID: ${generationId}`);
+
+    // Step 4: Poll for completion
+    console.log("⏳ Step 4/5: Waiting for generation to complete...");
+    let attempts = 0;
+    const maxAttempts = 60;
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      const statusResponse = await axios.get(
+        `${LEONARDO_API_URL}/generations/${generationId}`,
+        {
+          headers: {
+            accept: "application/json",
+            authorization: `Bearer ${LEONARDO_API_KEY}`,
+          },
+        }
+      );
+
+      const generation = statusResponse.data?.generations_by_pk;
+      
+      if (generation?.status === "COMPLETE" && generation?.generated_images?.length > 0) {
+        const imageUrl = generation.generated_images[0].url;
+        console.log(`✅ Step 5/5: Canvas Inpainting complete!`);
+        console.log(`🖼️ Generated image: ${imageUrl}`);
+        
+        return {
+          success: true,
+          imageUrl: imageUrl,
+          generationId: generationId,
+          creditsUsed: 9,
+          method: "canvas-inpainting",
+        };
+      }
+      
+      if (generation?.status === "FAILED") {
+        throw new Error("Canvas generation failed");
+      }
+      
+      attempts++;
+      console.log(`⏳ Status: ${generation?.status || 'PENDING'} (${attempts}/${maxAttempts})`);
+    }
+    
+    throw new Error("Canvas generation timeout after 3 minutes");
+
+  } catch (error) {
+    console.error("❌ Canvas Inpainting Error:", error.message);
+    console.error("❌ API Response:", error.response?.data);
+    throw error;
+  }
+}
+
+/**
+ * Create a simple SVG mask for face inpainting
+ * White ellipse in center = face area (will be changed)
+ * Black background = preserve area (clothing, background)
+ */
+function createCenterMask(width, height, centerRatio = 0.6) {
+  const centerWidth = Math.floor(width * centerRatio);
+  const centerHeight = Math.floor(height * centerRatio);
+  const offsetY = Math.floor(height * 0.1); // Face is typically in upper portion
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="${width}" height="${height}" fill="black"/>
+  <ellipse cx="${width/2}" cy="${height/2 - offsetY}" rx="${centerWidth/2}" ry="${centerHeight/2}" fill="white"/>
+</svg>`;
+
+  return svg;
 }
 
 console.log("🎨 AI Image Service initialized");
 console.log(`🎨 Leonardo AI: ${LEONARDO_API_KEY ? '✅ Configured' : '❌ Not configured'}`);
 console.log(`🎨 Available Leonardo Models: ${Object.keys(LEONARDO_MODELS).length} models`);
-console.log(`⚠️  Canvas Inpainting: Temporarily disabled (native dependencies issue)`);
+console.log(`⚠️  Canvas Inpainting: ✅ ENABLED (SVG mask, user settings: 0.57, 7, alchemy:false)`);
