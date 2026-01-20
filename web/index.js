@@ -402,12 +402,12 @@ app.post("/api/products/generate-image", async (req, res) => {
           result = await generateWithCanvasInpainting(
             currentImageUrl,
             {
-              leonardoModel: leonardoModel || "nano-banana-pro",
-              customPrompt: customPrompt,
-              customNegativePrompt: customNegativePrompt,
-              includeHair: includeHair || false,
-              initStrength: 0.15, // Low = high preservation
-              guidanceScale: 7.0,
+              width: 512,              // User's Canvas setting
+              height: 512,             // User's Canvas setting
+              inpaintStrength: 0.57,   // User's Canvas setting (was 0.15)
+              guidanceScale: 7,        // User's Canvas setting
+              prompt: customPrompt || "Beautiful blonde Turkish woman, professional fashion model, natural skin texture, realistic pores, soft makeup, neutral expression, high-end fashion look",
+              negativePrompt: customNegativePrompt || "changed clothes, altered outfit, different fabric, body change, pose change, face blur, plastic skin, cartoon, ai artifacts",
             }
           );
         } else {
